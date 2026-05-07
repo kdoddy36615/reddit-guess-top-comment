@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getPublicRound } from '@/db/rounds';
+import { findOrCreateSoloSession } from '@/db/sessions';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { GuessClient } from './guess-client';
@@ -18,6 +19,8 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
   const round = await getPublicRound(db, id);
   if (!round) notFound();
 
+  const session = await findOrCreateSoloSession(db, { playerId: player.id, roundId: round.id });
+
   return (
     <main className="mx-auto max-w-2xl p-6">
       <header className="mb-6 flex items-center justify-between">
@@ -28,7 +31,7 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
       </header>
       <h1 className="mt-2 text-3xl font-semibold leading-tight">{round.title}</h1>
       <p className="mt-4 text-zinc-600">Guess what the top comment said. One sentence is enough.</p>
-      <GuessClient roundId={round.id} />
+      <GuessClient roundId={round.id} sessionId={session.id} />
     </main>
   );
 }

@@ -143,13 +143,13 @@ Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `
 
 ### Round selection
 
-- **Freeplay (`/`)**: server picks one round at a time from `auto_published` rounds, weighted toward easier rounds early in a session and harder later (banded by `rounds.difficulty`). Skips rounds already played in this session.
+- **Freeplay (`/`)**: server picks one round at a time uniformly at random from `auto_published` rounds, excluding any the player already guessed in this session. The Gemini gate is the only quality/difficulty filter; `rounds.difficulty` is stored for display/analytics but does not influence selection. Difficulty banding (easy-first ramp) can be reintroduced later as a tuning pass — same interface, different `pickRound` body.
 - **Daily (`/daily`)**: 5 rounds auto-picked at midnight UTC via a deterministic seed derived from the date. Stored as a `game_sessions` row with `mode='daily'` and `room_id='daily-YYYY-MM-DD'`, plus 5 pre-filled `session_rounds`. A manual override (set the 5 round IDs by hand) is a future 10-line admin feature, not in MVP.
 - **Phase 2 rooms**: same `game_sessions` mechanism, with `mode='room'` and a generated 6-char `room_id`. No new table.
 
 ### Schema (7 tables)
 
-1. **`rounds`** — Reddit post + LLM gate output + 768-dim embedding (Gemini `text-embedding-004`) + lifecycle status (`pending_gate | auto_published | rejected | reported | unpublished`). Reddit data and game metadata are denormalized into this single table; we'll split if a round is ever derived from a non-Reddit source.
+1. **`rounds`** — Reddit post + LLM gate output + 768-dim embedding (Gemini `gemini-embedding-001` with `outputDimensionality: 768`) + lifecycle status (`pending_gate | auto_published | rejected | reported | unpublished`). Reddit data and game metadata are denormalized into this single table; we'll split if a round is ever derived from a non-Reddit source.
 2. **`players`** — anonymous identity. `nickname`, `cookie_hash`, optional later linkage to `auth.users` via Supabase anonymous auth.
 3. **`game_sessions`** — solo, daily, or room. State machine on `current_round_id` + `current_round_state` (`guessing | revealed | session_complete`). `UNIQUE (mode, room_id)` prevents duplicate daily sessions.
 4. **`session_rounds`** — ordered round sequence per session. Pre-filled for daily/room, appended one-at-a-time for freeplay.
@@ -175,7 +175,7 @@ When players later choose to "save my scores," `supabase.auth.linkIdentity({ pro
 
 - **Frontend:** Next.js 15 App Router, React 19, TypeScript 5.x, Tailwind CSS 4, shadcn/ui, Lucide icons.
 - **Database access:** Raw `@supabase/supabase-js` client (no ORM). Auto-generated types via `supabase gen types typescript`. Migrations in `supabase/migrations/*.sql`. SDK-style data access wrappers in `src/db/*.ts` (one file per table) for testability.
-- **AI:** `@google/genai` for both embeddings (`text-embedding-004`, 768 dims) and the gate (`gemini-2.5-flash` with `responseSchema` for structured output).
+- **AI:** `@google/genai` for both embeddings (`gemini-embedding-001` with `outputDimensionality: 768`) and the gate (`gemini-2.5-flash` with `responseSchema` for structured output). `text-embedding-004` is retired; do not reintroduce it.
 - **Auth:** Supabase anonymous auth with `linkIdentity()` upgrade path.
 - **Validation:** Zod 4 at every boundary (route handler input, Reddit response, Gemini gate response, env vars).
 - **Env vars:** `@t3-oss/env-nextjs` + Zod, validated at build time.
@@ -210,18 +210,24 @@ Both rendered at the edge via `@vercel/og` + Satori, cached by the Vercel CDN.
 
 ### Scaffold + slice rollout
 
-The repo is built in 9 vertical slices, in order. Each slice is independently shippable.
+The repo is built in vertical slices, in order. Each slice is independently shippable. Slice numbers map 1:1 to GitHub issue numbers (`Slice N` ↔ `#N`); Slice 0 is the pre-issue scaffold.
 
-- **Slice 0 (infra, one commit):** `pnpm dlx create-next-app` with TS+Tailwind+App Router; install all dependencies; configure Biome, Vitest, Playwright, env validation; `supabase init` + `supabase start`; write `0001_initial_schema.sql` with all 7 tables; generate types. Result: empty homepage on Vercel preview, `pnpm test` and `pnpm lint` green.
-- **Slice 1:** Solo round play loop end-to-end with one manually-seeded round. Page renders → form submits → server scores → reveal shows. Smallest possible end-to-end loop.
-- **Slice 2:** Real ingestion (pull + process crons), replacing the manual seed.
-- **Slice 3:** Anonymous identity (guest nickname + Supabase anon auth).
-- **Slice 4:** Session continuity, "Next round" flow, freeplay banded-random selection.
-- **Slice 5:** Daily challenge mechanic.
-- **Slice 6:** Share cards (Type A + Type B OG images).
-- **Slice 7:** SEO polish (sitemap, robots, structured data, full metadata).
-- **Slice 8:** Report mechanism, budget circuit breaker wiring, observability surface.
-- **Slice 9:** Polish + Lighthouse pass + ship.
+- **Slice 0 (infra, one commit, no issue):** `pnpm dlx create-next-app` with TS+Tailwind+App Router; install all dependencies; configure Biome, Vitest, Playwright, env validation; `supabase init` + `supabase start`; write `0001_initial_schema.sql` with all 7 tables; generate types. Result: empty homepage on Vercel preview, `pnpm test` and `pnpm lint` green.
+- **Slice 1 (#1):** Pure scoring module via TDD. `scoreGuess(guess, context) → ScoreBreakdown` with hand-crafted 768-dim vector fixtures. Base curve + each bonus type independently + clamping + composition.
+- **Slice 2 (#2):** Solo round play loop end-to-end with one manually-seeded round. Page renders → form submits → server scores → reveal shows. Smallest possible end-to-end loop.
+- **Slice 3 (#3):** Anonymous identity (guest nickname + Supabase anon auth, stable `player_id`).
+- **Slice 4 (#4):** Session machinery — "Next round" + "Skip" + freeplay uniform-random selection over `auto_published` rounds (excluding rounds already guessed in this session).
+- **Slice 5 (#5):** Reddit ingest script (scrape-based, frozen corpus). Replaces the manual seed; `pnpm ingest` produces ~120–130 published rounds.
+- **Slice 6 (#6):** Cron budget circuit breaker + killswitch — inert in MVP (no cron yet), wired so Phase 1.5's cron pipeline drops in cost-safe.
+- **Slice 7 (#7):** Daily challenge mechanic.
+- **Slice 8 (#8):** Type A pre-play OG share card.
+- **Slice 9 (#9):** Type B post-play OG card + `/result/[token]` page.
+- **Slice 10 (#10):** SEO foundation — metadata + sitemap + robots + JSON-LD.
+- **Slice 11 (#11):** Round page content depth — recent guesses + more-from-subreddit + `/archive`.
+- **Slice 12 (#12):** Report round mechanism + auto-unpublish at threshold.
+- **Slice 13 (#13):** Email/password upgrade flow via Supabase `linkIdentity()` (CTA, modal, sign-in on other devices). OAuth providers (Google first) are a planned future enhancement on the same `linkIdentity()` mechanism — `auth.users` row stays the same, `player_id` is preserved.
+- **Slice 14 (#14):** Vercel deploy + env vars + production smoke test (HITL).
+- **Slice 15 (#15):** Final polish — Lighthouse + Web Analytics + streamer readability.
 
 ### Repo layout (key directories)
 
@@ -268,7 +274,6 @@ This is a greenfield repo, so there's no in-codebase prior art yet. The first sc
 
 - **Continuous content ingestion.** MVP runs a one-shot local script (`pnpm ingest`) to seed a frozen corpus (~120–130 rounds). The cron-based pull/process pipeline is deferred to Phase 1.5 when Reddit API access lands. Reason: Reddit's post-Devvit API review queue is slow and uncertain; we don't block MVP on it.
 - **Phase 2 multiplayer rooms.** Architecturally accommodated, NOT built in MVP. No `session_players` table, no Realtime channel wiring, no host UI, no timer, no leaderboard, no room codes.
-- **Email/password authentication UI.** The `linkIdentity()` upgrade path exists in Supabase from day one, but no "Sign up" page or email form is in MVP. Anonymous-only player experience.
 - **Subreddit hub pages (`/subreddit/[name]`).** Removed from the plan during grilling. The internal-link graph plus `/archive` cover the same role with less SEO fragmentation. Can come back later if data shows specific subreddit search terms have meaningful volume and we're willing to invest in unique content per page.
 - **Admin/triage UI.** The auto-publish + report-button flow eliminates the manual queue. Add a triage page later only if the gate's accuracy degrades unacceptably.
 - **Manual daily-challenge override UI.** Auto-pick from `auto_published` is MVP. A 10-line admin feature to override the day's 5 picks is a future addition.

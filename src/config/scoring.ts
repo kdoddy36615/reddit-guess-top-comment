@@ -12,7 +12,8 @@ export const SCORING_CONFIG = {
    *
    * With midpoint=0.5, steepness=8: cos≈0.95 → ~98, cos≈0.5 → 50, cos≈0.1 → ~3.
    * Tuned around the assumption that realistic guess/top-comment cosines on
-   * `text-embedding-004` (768d) cluster between 0.3 (off) and 0.95 (paraphrase).
+   * `gemini-embedding-001` (768d via outputDimensionality) cluster between
+   * 0.3 (off) and 0.95 (paraphrase).
    */
   curve: {
     midpoint: 0.5,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { ScoreBreakdown } from '@/scoring';
 import type { ReactionBand } from '@/scoring/reaction';
@@ -19,9 +20,11 @@ const BAND_COLOR: Record<ReactionBand, string> = {
   bullseye: 'bg-violet-200 text-violet-950 border-violet-400',
 };
 
-export function GuessClient({ roundId }: { roundId: string }) {
+export function GuessClient({ roundId, sessionId }: { roundId: string; sessionId: string }) {
+  const router = useRouter();
   const [guess, setGuess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GuessResponse | null>(null);
   const [topComment, setTopComment] = useState<string | null>(null);
@@ -53,6 +56,32 @@ export function GuessClient({ roundId }: { roundId: string }) {
       setError(err instanceof Error ? err.message : 'Network error');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function advance() {
+    setAdvancing(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/session/next', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!res.ok) {
+        setError(`Could not load next round (${res.status})`);
+        return;
+      }
+      const data = (await res.json()) as { roundId: string | null };
+      if (!data.roundId) {
+        setError("You've played every available round. Check back later!");
+        return;
+      }
+      router.push(`/round/${data.roundId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error');
+    } finally {
+      setAdvancing(false);
     }
   }
 
@@ -92,6 +121,16 @@ export function GuessClient({ roundId }: { roundId: string }) {
             </p>
           </div>
         )}
+        <button
+          type="button"
+          onClick={advance}
+          disabled={advancing}
+          data-testid="next-round"
+          className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-white disabled:opacity-50"
+        >
+          {advancing ? 'Loading…' : 'Next round'}
+        </button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     );
   }
@@ -106,19 +145,30 @@ export function GuessClient({ roundId }: { roundId: string }) {
         name="guess"
         type="text"
         autoComplete="off"
-        disabled={submitting}
+        disabled={submitting || advancing}
         placeholder="What did the top comment say?"
         value={guess}
         onChange={(e) => setGuess(e.target.value)}
         className="w-full rounded-lg border border-zinc-300 px-4 py-3 text-lg outline-none focus:border-zinc-900"
       />
-      <button
-        type="submit"
-        disabled={submitting || !guess.trim()}
-        className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-white disabled:opacity-50"
-      >
-        {submitting ? 'Scoring…' : 'Submit guess'}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={submitting || advancing || !guess.trim()}
+          className="flex-1 rounded-lg bg-zinc-900 px-4 py-3 text-white disabled:opacity-50"
+        >
+          {submitting ? 'Scoring…' : 'Submit guess'}
+        </button>
+        <button
+          type="button"
+          onClick={advance}
+          disabled={submitting || advancing}
+          data-testid="skip-round"
+          className="rounded-lg border border-zinc-300 px-4 py-3 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          {advancing ? '…' : 'Skip'}
+        </button>
+      </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </form>
   );
