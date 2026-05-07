@@ -1,0 +1,139 @@
+/* hi-fi design tokens for Guess the Top Comment */
+/* warm dark theme · reddit-leaning but its own thing · party-game energy */
+
+:root {
+  /* surfaces */
+  --bg: #14110e;
+  --bg-elev: #1c1814;
+  --bg-card: #25201a;
+  --bg-card-2: #2e2820;
+  --bg-input: #1a1612;
+  --hairline: rgba(255, 235, 205, 0.08);
+  --hairline-strong: rgba(255, 235, 205, 0.16);
+
+  /* text */
+  --ink: #f6efe1;
+  --ink-soft: #b8ad97;
+  --ink-faint: #6e6453;
+  --ink-mute: #4a4338;
+
+  /* brand */
+  --accent: #e8814a;          /* warm orange — primary CTAs, score hero */
+  --accent-hi: #f29560;
+  --accent-soft: rgba(232, 129, 74, 0.14);
+  --accent-2: #f4c95d;        /* gold — "you", streaks, secondary */
+  --accent-2-soft: rgba(244, 201, 93, 0.16);
+
+  /* multiplayer team accents (decorative) */
+  --team-blue: #7cc6ff;
+  --team-purple: #c39bff;
+  --team-green: #9be38a;
+
+  /* score bands */
+  --band-bullseye: #9be38a;
+  --band-warm: #f4c95d;
+  --band-cold: #e8814a;
+  --band-cold-2: #d96152;
+
+  /* type */
+  --font-display: 'Fraunces', 'Source Serif Pro', Georgia, serif;
+  --font-body: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --font-hand: 'Caveat', 'Patrick Hand', cursive;
+
+  /* radius / shadow */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  --sh-sm: 0 1px 0 rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.25);
+  --sh-md: 0 2px 0 rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+  --sh-glow: 0 0 0 1px var(--accent-soft), 0 8px 28px rgba(232,129,74,.18);
+
+  /* easing */
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --ease-in-out: cubic-bezier(.65,.05,.35,1);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* utility */
+.mono { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--ink-soft); }
+.hand { font-family: var(--font-hand); }
+.serif { font-family: var(--font-display); letter-spacing: -0.01em; }
+.muted { color: var(--ink-soft); }
+.faint { color: var(--ink-faint); }
+
+/* button */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  border: 1.5px solid var(--hairline-strong);
+  background: var(--bg-card);
+  color: var(--ink);
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform .12s var(--ease-out), background .15s, border-color .15s, box-shadow .2s;
+}
+.btn:hover { background: var(--bg-card-2); border-color: var(--ink-faint); }
+.btn:active { transform: translateY(1px); }
+.btn--primary { background: var(--accent); color: #1a0e07; border-color: transparent; font-weight: 600; }
+.btn--primary:hover { background: var(--accent-hi); }
+.btn--ghost { background: transparent; border-color: var(--hairline); }
+.btn--lg { padding: 14px 22px; font-size: 16px; }
+.btn--sm { padding: 6px 12px; font-size: 13px; }
+.btn--icon { padding: 8px; width: 36px; height: 36px; }
+
+/* chip */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline-strong);
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--ink-soft);
+  background: var(--bg-elev);
+}
+.chip--accent { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+.chip--gold { color: var(--accent-2); border-color: var(--accent-2-soft); background: var(--accent-2-soft); }
+
+/* card */
+.card { background: var(--bg-card); border: 1px solid var(--hairline); border-radius: var(--r-lg); }
+
+/* avatar dot */
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); }
+
+/* squiggly underline (decoration only) */
+.squiggle { display: block; width: 100%; height: 6px; }
+
+/* keyframes */
+@keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+@keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+@keyframes flash {
+  0% { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
+@keyframes scoreUp {
+  0% { transform: translateY(20px) scale(0.8); opacity: 0; }
+  60% { transform: translateY(-4px) scale(1.06); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

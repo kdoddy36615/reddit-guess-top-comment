@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hi-Fi · Guess the Top Comment</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="screens.css" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="screens-solo.jsx"></script>
+  <script type="text/babel" src="screens-multi.jsx"></script>
+
+  <script type="text/babel">
+    const {
+      useState, SAMPLE_POSTS, scoreGuess,
+      WelcomeScreen, RoundScreen, RevealScreen,
+      LobbyScreen, ScoreboardScreen, MatchEndScreen,
+      DailyLeaderboardScreen, DailySummaryScreen,
+    } = window;
+
+    const ROUTES = [
+      { id: 'welcome', label: 'welcome' },
+      { id: 'round', label: 'round' },
+      { id: 'reveal', label: 'reveal' },
+      { id: 'lobby', label: 'lobby' },
+      { id: 'scoreboard', label: 'scoreboard' },
+      { id: 'matchend', label: 'match end' },
+      { id: 'daily', label: 'daily board' },
+      { id: 'summary', label: 'end of daily' },
+    ];
+
+    function App() {
+      const [route, setRoute] = useState('welcome');
+      const [postIdx, setPostIdx] = useState(0);
+      const [guess, setGuess] = useState('');
+      const [score, setScore] = useState(0);
+      const post = SAMPLE_POSTS[postIdx];
+
+      const handleSubmitGuess = (g) => {
+        const target = post.top3[0].text;
+        setGuess(g);
+        setScore(scoreGuess(g, target));
+        setRoute('reveal');
+      };
+      const handleNextRound = () => {
+        setPostIdx((postIdx + 1) % SAMPLE_POSTS.length);
+        setGuess('');
+        setRoute('round');
+      };
+
+      const screenProps = (mobile) => {
+        switch (route) {
+          case 'welcome':
+            return <WelcomeScreen mobile={mobile}
+              onStart={() => setRoute('round')}
+              onJoin={(kind) => setRoute(kind === 'room' ? 'lobby' : 'round')} />;
+          case 'round':
+            return <RoundScreen mobile={mobile} post={post} roundNum={(postIdx % 8) + 1}
+              onSubmit={handleSubmitGuess} />;
+          case 'reveal':
+            return <RevealScreen mobile={mobile} post={post} guess={guess} score={score}
+              onNext={handleNextRound} />;
+          case 'lobby':
+            return <LobbyScreen mobile={mobile} onStart={() => setRoute('round')} />;
+          case 'scoreboard':
+            return <ScoreboardScreen mobile={mobile} onNext={() => setRoute('round')} />;
+          case 'matchend':
+            return <MatchEndScreen mobile={mobile} onNext={() => setRoute('lobby')} />;
+          case 'daily':
+            return <DailyLeaderboardScreen mobile={mobile} onNext={() => setRoute('summary')} />;
+          case 'summary':
+            return <DailySummaryScreen mobile={mobile}
+              onLeaderboard={() => setRoute('daily')}
+              onUnlimited={() => setRoute('round')} />;
+          default:
+            return null;
+        }
+      };
+
+      // suggest natural transitions on the host nav after demo screens
+      const NEXT = {
+        welcome: 'round', round: 'reveal', reveal: 'scoreboard',
+        lobby: 'scoreboard', scoreboard: 'matchend', matchend: 'daily',
+        daily: 'summary', summary: 'welcome',
+      };
+
+      return (
+        <>
+          <nav className="host-nav" data-screen-label="host-nav">
+            {ROUTES.map(r => (
+              <button key={r.id} className={route === r.id ? 'active' : ''} onClick={() => setRoute(r.id)}>
+                {r.label}
+              </button>
+            ))}
+          </nav>
+
+          <header className="host-header">
+            <h1>Guess the Top Comment — hi-fi prototype</h1>
+            <p>locked picks · A1 welcome · B2 round · C5 reveal · D lobby/match · E daily/summary · click any screen above to jump</p>
+          </header>
+
+          <div className="frames">
+            <div className="frame" data-screen-label={`mobile-${route}`}>
+              <div className="frame-label"><span className="dot"></span>mobile · 390×844</div>
+              <div className="frame-mobile">
+                <div className="status-bar">
+                  <span>9:41</span>
+                  <span className="icons mono" style={{ fontSize: 12 }}>● ● ●</span>
+                </div>
+                {screenProps(true)}
+              </div>
+            </div>
+            <div className="frame" data-screen-label={`desktop-${route}`}>
+              <div className="frame-label"><span className="dot"></span>desktop · 1200×800</div>
+              <div className="frame-desktop">
+                {screenProps(false)}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ textAlign: 'center', padding: '20px 0 60px' }}>
+            <button className="btn btn--ghost" onClick={() => setRoute(NEXT[route])}>
+              continue → <span className="mono" style={{ marginLeft: 6 }}>{NEXT[route]}</span>
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

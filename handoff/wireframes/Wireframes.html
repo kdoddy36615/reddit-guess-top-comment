@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Wireframes — Guess the Top Comment</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Architects+Daughter&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #0e0c0a; font-family: 'Patrick Hand', cursive; color: #f1ece2; }
+    * { box-sizing: border-box; }
+    @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+    .dc-artboard { background: #1f1c18 !important; }
+    .dc-section-title, .dc-title, .dc-subtitle, .dc-artboard-label { color: #f1ece2 !important; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="sketch-primitives.jsx"></script>
+  <script type="text/babel" src="welcome-wireframes.jsx"></script>
+  <script type="text/babel" src="round-wireframes.jsx"></script>
+  <script type="text/babel" src="reveal-wireframes.jsx"></script>
+  <script type="text/babel" src="multi-leaderboard-wireframes.jsx"></script>
+
+  <script type="text/babel">
+    const { DesignCanvas, DCSection, DCArtboard } = window;
+    const W = 1110;
+    const H = 600;
+
+    function App() {
+      return (
+        <DesignCanvas title="Reddit · Guess the Top Comment — wireframes v2 (dark + multiplayer)" subtitle="dark theme · image-bearing posts · room lobby + match · daily / global leaderboard · top-3 reveal">
+          <DCSection id="welcome" title="Welcome / first-time landing">
+            <DCArtboard id="w1" label="A1 — Sober (dark)" width={W} height={H}><Welcome1 /></DCArtboard>
+            <DCArtboard id="w2" label="A2 — Image-post hero" width={W} height={H}><Welcome2 /></DCArtboard>
+            <DCArtboard id="w3" label="A3 — Create or join a room" width={W} height={H}><Welcome3 /></DCArtboard>
+            <DCArtboard id="w4" label="A4 — Reddit thread / pinned mod post" width={W} height={H}><Welcome4 /></DCArtboard>
+            <DCArtboard id="w5" label="A5 — Daily + leaderboard preview" width={W} height={H}><Welcome5 /></DCArtboard>
+            <DCArtboard id="w6" label="A6 — Signed-in dashboard" width={W} height={H}><Welcome6 /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="round" title="Round — guess input (now image-aware + multiplayer)">
+            <DCArtboard id="r1" label="B1 — Classic single column" width={W} height={H}><Round1 /></DCArtboard>
+            <DCArtboard id="r2" label="B2 — Image-post round" width={W} height={H}><Round2 /></DCArtboard>
+            <DCArtboard id="r3" label="B3 — Reply composer" width={W} height={H}><Round3 /></DCArtboard>
+            <DCArtboard id="r4" label="B4 — Multiplayer live round" width={W} height={H}><Round4 /></DCArtboard>
+            <DCArtboard id="r5" label="B5 — Word-bank / Mad-libs" width={W} height={H}><Round5 /></DCArtboard>
+            <DCArtboard id="r6" label="B6 — Confidence slider" width={W} height={H}><Round6 /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="reveal" title="Reveal — top 3 comments + first replies">
+            <DCArtboard id="rv1" label="C1 — Score hero + thread feed" width={W} height={H}><Reveal1 /></DCArtboard>
+            <DCArtboard id="rv2" label="C2 — Match against any of top 3" width={W} height={H}><Reveal2 /></DCArtboard>
+            <DCArtboard id="rv3" label="C3 — Color-flood band + thread" width={W} height={H}><Reveal3 /></DCArtboard>
+            <DCArtboard id="rv4" label="C4 — Slot machine + 3 mini-cards" width={W} height={H}><Reveal4 /></DCArtboard>
+            <DCArtboard id="rv5" label="C5 — Full thread (you inserted)" width={W} height={H}><Reveal5 /></DCArtboard>
+            <DCArtboard id="rv6" label="C6 — Top-3 podium" width={W} height={H}><Reveal6 /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="multi" title="Multiplayer rooms (Phase 2)">
+            <DCArtboard id="m1" label="D1 — Room lobby (host)" width={W} height={H}><Multi1 /></DCArtboard>
+            <DCArtboard id="m2" label="D2 — Mid-match scoreboard" width={W} height={H}><Multi2 /></DCArtboard>
+            <DCArtboard id="m3" label="D3 — End of match" width={W} height={H}><Multi3 /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="leader" title="Leaderboards">
+            <DCArtboard id="l1" label="E1 — Daily leaderboard" width={W} height={H}><Leader1 /></DCArtboard>
+            <DCArtboard id="l2" label="E2 — Global (day / week / all)" width={W} height={H}><Leader2 /></DCArtboard>
+            <DCArtboard id="l3" label="E3 — End of daily" width={W} height={H}><Leader3 /></DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
