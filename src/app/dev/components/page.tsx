@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CommentCard, CommentReply } from '@/components/game/comment-card';
+import { LeaderboardRow } from '@/components/game/leaderboard-row';
 import { RoundCard } from '@/components/game/round-card';
 import { ScoreReveal } from '@/components/game/score-reveal';
 import { Avatar } from '@/components/ui/avatar';
@@ -35,6 +36,7 @@ const SECTIONS = [
   { id: 'guess-input', label: 'GuessInput' },
   { id: 'score-reveal', label: 'ScoreReveal' },
   { id: 'comment-card', label: 'CommentCard' },
+  { id: 'leaderboard-row', label: 'LeaderboardRow' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -487,8 +489,71 @@ export default function DevComponentsPage() {
         <GuessInputSection />
         <ScoreRevealSection />
         <CommentCardSection />
+        <LeaderboardRowSection />
       </div>
     </main>
+  );
+}
+
+function LeaderboardRowSection() {
+  // Two example lists per the issue: top-3 view and an off-screen 'you' row
+  // sandwiched between rank-neighbors. Same component, two layouts.
+  const topThree = [
+    { rank: 1, name: 'redditor_42', score: 920, slot: 0 },
+    { rank: 2, name: 'workfromhomer', score: 814, slot: 1 },
+    { rank: 3, name: 'caffeineghost', score: 701, slot: 2 },
+  ];
+  const youCluster = [
+    { rank: 13, name: 'midnight_mike', score: 627, slot: 4 },
+    { rank: 14, name: 'me', score: 612, variant: 'you' as const },
+    { rank: 15, name: 'dev_null', score: 598, slot: 5 },
+  ];
+
+  return (
+    <section id="leaderboard-row" className="scroll-mt-20 space-y-6">
+      <header>
+        <h2 className="font-display text-2xl font-semibold text-text">LeaderboardRow</h2>
+        <p className="font-mono text-xs text-text-faint">
+          rank · avatar · name · score grid · default + &apos;you&apos; variants — DESIGN.md §2 game
+          components
+        </p>
+      </header>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">top 3</p>
+          <div className="space-y-2">
+            {topThree.map((row) => (
+              <LeaderboardRow
+                key={row.rank}
+                rank={row.rank}
+                name={row.name}
+                score={row.score}
+                slot={row.slot}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">
+            off-screen &apos;you&apos; with neighbors
+          </p>
+          <div className="space-y-2">
+            {youCluster.map((row) => (
+              <LeaderboardRow
+                key={row.rank}
+                rank={row.rank}
+                name={row.name}
+                score={row.score}
+                variant={row.variant}
+                slot={row.slot}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

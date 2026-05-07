@@ -28,6 +28,7 @@ describe('/dev/components page', () => {
       '#guess-input',
       '#score-reveal',
       '#comment-card',
+      '#leaderboard-row',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -49,6 +50,7 @@ describe('/dev/components page', () => {
       'guess-input',
       'score-reveal',
       'comment-card',
+      'leaderboard-row',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -210,6 +212,21 @@ describe('/dev/components page', () => {
     // At least one reply rail renders somewhere in the section.
     const replies = root.querySelectorAll('[data-variant="reply"]');
     expect(replies.length).toBeGreaterThan(0);
+  });
+
+  it("covers LeaderboardRow with top-3 and off-screen 'you' cluster examples", () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('leaderboard-row') as HTMLElement;
+    expect(root).not.toBeNull();
+    for (const label of ['top 3', "off-screen 'you' with neighbors"]) {
+      expect(within(root).getAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);
+    }
+    // At least one 'you' variant row renders (accent-2-soft bg).
+    const youRows = root.querySelectorAll('[data-variant="you"]');
+    expect(youRows.length).toBe(1);
+    // Top-3 list contributes three default rows; you-cluster contributes two more.
+    const defaultRows = root.querySelectorAll('[data-variant="default"]');
+    expect(defaultRows.length).toBe(5);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {
