@@ -1,28 +1,76 @@
 @import "tailwindcss";
 
+@theme {
+  /* color */
+  --color-bg: #14110e;
+  --color-surface: #1c1814;
+  --color-surface-2: #25201a;
+  --color-surface-3: #1a1612;
+  --color-border: oklch(0.95 0.04 80 / 0.08);
+  --color-border-strong: oklch(0.95 0.04 80 / 0.16);
+
+  --color-text: #f6efe1;
+  --color-text-muted: #b8ad97;
+  --color-text-faint: #6e6453;
+  --color-text-disabled: #4a4338;
+
+  --color-accent: #e8814a;
+  --color-accent-hi: #f29560;
+  --color-accent-soft: oklch(0.7 0.15 45 / 0.14);
+  --color-accent-foreground: #1a0e07;
+  --color-accent-2: #f4c95d;
+  --color-accent-2-soft: oklch(0.85 0.14 85 / 0.16);
+
+  --color-success: #9be38a;
+  --color-warning: #f4c95d;
+  --color-danger: #d96152;
+
+  /* type */
+  --font-display: "Fraunces", "Source Serif Pro", Georgia, serif;
+  --font-sans: "Inter Tight", Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  --font-hand: "Caveat", "Patrick Hand", cursive;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.25rem;
+  --text-3xl: 3.5rem;
+  --text-display: 6rem;
+
+  /* radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+
+  /* shadow */
+  --shadow-sm: 0 1px 0 rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.25);
+  --shadow-md: 0 2px 0 rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+  --shadow-glow: 0 0 0 1px var(--color-accent-soft), 0 8px 28px rgba(232,129,74,.18);
+
+  /* motion */
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --ease-in-out: cubic-bezier(.65,.05,.35,1);
+}
+
+@layer base {
+  html { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }
+  ::selection { background: var(--color-accent-soft); color: var(--color-text); }
+}
+
+/* next/font (layout.tsx) sets --font-fraunces / --font-inter-tight / etc. on
+   <html>; rebind the @theme font tokens here so the loaded Google fonts apply
+   while the verbatim DESIGN.md §1.2 stacks above remain the fallback. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+  --font-display: var(--font-fraunces), "Source Serif Pro", Georgia, serif;
+  --font-sans: var(--font-inter-tight), Inter, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "IBM Plex Mono", ui-monospace, monospace;
+  --font-hand: var(--font-caveat), "Patrick Hand", cursive;
 }
 
 @keyframes reveal-in {
