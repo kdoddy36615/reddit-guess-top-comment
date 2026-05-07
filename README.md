@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# reddit-guess-top-comment
 
-## Getting Started
+Web game where players guess the top Reddit comment on a post.
 
-First, run the development server:
+Solo, no signup. Each round shows a Reddit post title; you type what you think the top comment said and get scored 0–100 (semantic similarity + structural bonuses). MVP ships solo + daily; streamer-hosted multiplayer rooms planned for Phase 2.
+
+See **[PRD.md](./PRD.md)** for full design and **[CLAUDE.md](./CLAUDE.md)** for the architectural commitments.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 · Supabase (Postgres + pgvector + Auth) · Gemini (`gemini-embedding-001`, 768 dims) · Biome · Vitest · Playwright
+
+## Quickstart
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local      # then fill in Supabase + Gemini keys
+pnpm dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**One-time Supabase setup:**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Apply the schema in `supabase/migrations/` via Dashboard SQL Editor.
+2. Enable **Authentication → Sign-In Providers → Anonymous Sign-Ins**.
+3. (Optional) Generate canonical types: `supabase login && pnpm db:types`. The repo ships with a hand-rolled `database.types.ts` until you do — file is gitignored.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Seed a sample round (dev only):**
 
-## Learn More
+```bash
+curl -X POST http://localhost:3000/api/dev/seed
+# returns { roundId, url } — open the URL in a fresh window to play
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Dev server (Turbopack) |
+| `pnpm build` | Production build |
+| `pnpm test` | Vitest (unit + integration) |
+| `pnpm test:watch` | Vitest watch mode |
+| `pnpm test:e2e` | Playwright (requires dev server) |
+| `pnpm lint` / `pnpm lint:fix` | Biome |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm db:types` | Regenerate Supabase types |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`lint` / `typecheck` / `test` / `build` must all stay green.
 
-## Deploy on Vercel
+## Status
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- ✅ Slice 0: scaffold (Next, Tailwind, Biome, Vitest, Supabase migration)
+- ✅ Slice 1: pure scoring module
+- ✅ Slice 2: solo round playable end-to-end (manual seed)
+- ✅ Slice 3: anonymous identity + guest nickname
+- ⏭️ Slice 4: session machinery (next round, skip, freeplay)
+- ⏭️ Slice 5+: ingestion, daily, share cards, SEO, polish
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See open issues on GitHub for the slice queue.
