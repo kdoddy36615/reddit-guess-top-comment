@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { RoundCard } from '@/components/game/round-card';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ const SECTIONS = [
   { id: 'toast', label: 'Toast' },
   { id: 'tabs', label: 'Tabs' },
   { id: 'tooltip', label: 'Tooltip' },
+  { id: 'round-card', label: 'RoundCard' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -350,6 +352,64 @@ function SkeletonSection() {
   );
 }
 
+function RoundCardSection() {
+  return (
+    <section id="round-card" className="scroll-mt-20 space-y-4">
+      <header>
+        <h2 className="font-display text-2xl font-semibold text-text">RoundCard</h2>
+        <p className="font-mono text-xs text-text-faint">
+          with image · without image · with body · title-only — DESIGN.md §2 game components
+        </p>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">with image</p>
+          <RoundCard
+            subreddit="tifu"
+            age="8h"
+            upvotes="24.1k"
+            title="TIFU by texting my boss a photo of my cat instead of the quarterly report"
+            body="Title says it all. Was half asleep, grabbed the wrong attachment, hit send before my brain caught up."
+            imageUrl="https://example.invalid/post.jpg"
+          />
+        </div>
+        <div className="space-y-2">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">
+            without image
+          </p>
+          <RoundCard
+            subreddit="AskReddit"
+            age="2h"
+            upvotes="6.8k"
+            title="What's a small thing someone did that completely changed your day?"
+            body="Looking for the tiny moments — a stranger's smile, a barista remembering your order, etc."
+          />
+        </div>
+        <div className="space-y-2">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">with body</p>
+          <RoundCard
+            subreddit="explainlikeimfive"
+            age="14h"
+            upvotes="3.1k"
+            title="ELI5: Why does my voice sound different on a recording?"
+            body="My recorded voice sounds nothing like what I hear when I talk. What's actually going on?"
+          />
+        </div>
+        <div className="space-y-2">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">title-only</p>
+          <RoundCard
+            subreddit="Showerthoughts"
+            age="36m"
+            upvotes="921"
+            title="Adulthood is mostly just remembering to drink water."
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProgressSection() {
   return (
     <section id="progress" className="scroll-mt-20 space-y-4">
@@ -417,6 +477,7 @@ export default function DevComponentsPage() {
         <ToastSection />
         <TabsSection />
         <TooltipSection />
+        <RoundCardSection />
       </div>
     </main>
   );

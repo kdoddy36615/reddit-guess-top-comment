@@ -8,6 +8,9 @@ describe('/dev/components page', () => {
 
     // Top nav lets reviewers jump to each section.
     const nav = screen.getByRole('navigation', { name: /sections/i });
+    const navHrefs = within(nav)
+      .getAllByRole('link')
+      .map((l) => l.getAttribute('href'));
     for (const anchor of [
       '#button',
       '#input',
@@ -21,10 +24,9 @@ describe('/dev/components page', () => {
       '#toast',
       '#tabs',
       '#tooltip',
+      '#round-card',
     ]) {
-      expect(
-        within(nav).getByRole('link', { name: new RegExp(anchor.slice(1), 'i') }),
-      ).toHaveAttribute('href', anchor);
+      expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
 
     for (const id of [
@@ -40,6 +42,7 @@ describe('/dev/components page', () => {
       'toast',
       'tabs',
       'tooltip',
+      'round-card',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -140,6 +143,24 @@ describe('/dev/components page', () => {
     // Tooltip section has trigger buttons (tip itself is closed at rest).
     const tooltip = document.getElementById('tooltip') as HTMLElement;
     expect(within(tooltip).getAllByRole('button').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('covers RoundCard with four example states (image / no image / body / title-only)', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('round-card') as HTMLElement;
+    expect(root).not.toBeNull();
+    // Four labelled example states.
+    for (const label of ['with image', 'without image', 'with body', 'title-only']) {
+      expect(within(root).getAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);
+    }
+    // Exactly one image placeholder rendered (only the "with image" example).
+    const placeholders = root.querySelectorAll('[data-testid="round-card-image"]');
+    expect(placeholders.length).toBe(1);
+    // At least one body slot rendered ("with body" + "with image" both have a body).
+    const bodies = root.querySelectorAll('[data-testid="round-card-body"]');
+    expect(bodies.length).toBeGreaterThanOrEqual(1);
+    // Multiple titles rendered as headings.
+    expect(within(root).getAllByRole('heading').length).toBeGreaterThanOrEqual(4);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {
