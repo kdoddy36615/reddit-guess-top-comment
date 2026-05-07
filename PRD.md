@@ -119,27 +119,27 @@ finalScore = clamp(0, 100, base + sum(bonuses))
 
 `scoreGuess` is synchronous to keep it pure and trivially testable. If a future iteration needs LLM-based scoring (e.g. "ask Claude to grade the joke"), the interface would need to become async — that's an acknowledged future breaking change, accepted as the cost of keeping today's interface clean.
 
-### Content sourcing — automated gate, no manual queue
+### Content sourcing — script-based ingest (frozen corpus)
 
-Reddit ingestion runs on Vercel Cron via two route handlers:
+For MVP, content is ingested via a one-shot local script since Reddit API access is gated behind a slow review queue post-Devvit. The script runs from a residential IP and produces a frozen corpus of ~120–130 published rounds — enough for ~25 days of unique daily-5 content plus freeplay variety. Re-run on demand to add a new subreddit or refresh the corpus.
 
 ```
-PULL JOB     /api/cron/pull        every 60 min
-  → Reddit API (OAuth client_credentials)
-  → top posts from a 5-subreddit allowlist (t=day, limit=25 each)
-  → INSERT ON CONFLICT DO NOTHING into `rounds` with status='pending_gate'
-
-PROCESS JOB  /api/cron/process     every 5 min
-  → SELECT rows WHERE status='pending_gate' LIMIT 50
-  → for each: Gemini gate call (one structured-output JSON call per row)
-              produces verdict + reasoning + difficulty + 3 structural tags
-  → if verdict='publish': Gemini embed call for top comment, set status='auto_published'
-  → if verdict='reject':  set status='rejected', store reasoning (audit + future re-runs)
+INGEST SCRIPT  pnpm ingest                          run locally, on-demand
+  → public Reddit JSON (https://www.reddit.com/r/{sub}/top.json?t=year&limit=100)
+    no auth, residential IP, 1.5s pacing, real User-Agent
+  → for each candidate post:
+      - pre-flight skip if reddit_post_id already in `rounds` (saves Gemini calls)
+      - deterministic filters (deleted/AutoMod/stickied/video/image-only/NSFW/short)
+      - Gemini gate call → verdict + reasoning + difficulty + 3 structural tags
+      - if reject:  insert row with status='rejected' (durable, not re-gated on re-run)
+      - if publish: Gemini embed call for top comment → insert status='auto_published'
 ```
 
 The gate is biased toward over-rejection in its prompt — false negatives cost nothing (Reddit supply is infinite), false positives are the only failure mode worth preventing. Quality is self-correcting via the user-facing Report button (3 reports auto-unpublishes), with a weekly 5-minute spot-check on rounds with low average scores.
 
-Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `AskReddit`, `AmItheAsshole`, `MaliciousCompliance`, `Showerthoughts`. Adding a subreddit is a one-line config change.
+Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `AskReddit`, `AmItheAsshole`, `MaliciousCompliance`, `Showerthoughts`. Adding a subreddit is a one-line config change followed by re-running `pnpm ingest`.
+
+**Phase 1.5 — when Reddit API access lands.** The cron-based pipeline returns to provide continuous fresh content: hourly `/api/cron/pull` (OAuth client_credentials, `t=day`, INSERT pending_gate rows) + 5-min `/api/cron/process` (gate + embed pending rows in batches of 50). The swap is small by design: `src/lib/reddit/client.ts` switches `baseUrl` to `oauth.reddit.com` and adds an `Authorization` header; `src/lib/gemini/{gate,embed}.ts` are unchanged; the new cron route handlers import the same `gate()` and `embed()` functions the script uses today. `cron_budget` + `cron_runs` tables are already in the schema, inert until cron returns.
 
 ### Round selection
 
@@ -168,8 +168,8 @@ When players later choose to "save my scores," `supabase.auth.linkIdentity({ pro
 ### Cost controls — three independent layers
 
 1. **Google Cloud billing budget** — $10/month with alerts at $2/$5/$10, plus a Pub/Sub trigger that disables the API key at 100%. Credit card stops at $10 even if every other safeguard fails.
-2. **App-level circuit breaker** — `cron_budget` table tracks daily spend. Every cron handler checks `halted`, `est_cost_usd`, and per-run caps before doing work. Daily hard cap default: $1.00. Per-run candidate cap: 50.
-3. **Manual killswitch** — `CRON_KILLSWITCH=true` env var on Vercel halts all cron handlers immediately on next tick. No deploy needed.
+2. **App-level circuit breaker** — `cron_budget` table tracks daily spend. Every cron handler checks `halted`, `est_cost_usd`, and per-run caps before doing work. Daily hard cap default: $1.00. Per-run candidate cap: 50. *Deferred until Phase 1.5; the MVP ingest script is bounded at ~$0.06 per run by design (500 candidates × Gemini Flash) so the circuit breaker has no work to do yet.*
+3. **Manual killswitch** — `CRON_KILLSWITCH=true` env var on Vercel halts all cron handlers immediately on next tick. No deploy needed. *Deferred with the cron infra; the script halts cleanly via Ctrl+C.*
 
 ### Tech stack
 
@@ -266,6 +266,7 @@ This is a greenfield repo, so there's no in-codebase prior art yet. The first sc
 
 ## Out of Scope
 
+- **Continuous content ingestion.** MVP runs a one-shot local script (`pnpm ingest`) to seed a frozen corpus (~120–130 rounds). The cron-based pull/process pipeline is deferred to Phase 1.5 when Reddit API access lands. Reason: Reddit's post-Devvit API review queue is slow and uncertain; we don't block MVP on it.
 - **Phase 2 multiplayer rooms.** Architecturally accommodated, NOT built in MVP. No `session_players` table, no Realtime channel wiring, no host UI, no timer, no leaderboard, no room codes.
 - **Email/password authentication UI.** The `linkIdentity()` upgrade path exists in Supabase from day one, but no "Sign up" page or email form is in MVP. Anonymous-only player experience.
 - **Subreddit hub pages (`/subreddit/[name]`).** Removed from the plan during grilling. The internal-link graph plus `/archive` cover the same role with less SEO fragmentation. Can come back later if data shows specific subreddit search terms have meaningful volume and we're willing to invest in unique content per page.
@@ -302,13 +303,14 @@ The base curve exponent, bonus point values, and any thresholds (jaccard cutoff 
 
 ### Cost estimate at MVP scale
 
-- Reddit API: free (well under 100/min OAuth limit).
-- Gemini gate: ~$0.0001/candidate × ~50/hr = ~$3.60/month.
-- Gemini embedding (top comment + uncached guesses): negligible at MVP scale; embedding cache materially reduces this in steady state.
-- Vercel Cron + Hosting: free tier covers MVP.
-- Supabase: free tier covers MVP.
+- Reddit access: free (public JSON endpoints from a residential IP, no auth).
+- Gemini gate (one-shot ingest): ~$0.06 per script run (~500 candidates × Gemini Flash). Re-runs are ~free thanks to the pre-flight skip.
+- Gemini embedding (top comment + uncached guesses): ~$0.004 per ingest run; guess-time embedding cache materially reduces costs in steady state.
+- Vercel + Supabase: free tier covers MVP.
 
-**Total: ~$4/month at MVP scale**, with the $1/day app-level cap and $10/month GCP budget as hard ceilings.
+**Total: pennies for content ingestion**, dominated by guess-time embedding cache misses, with the $10/month GCP budget as the hard ceiling.
+
+When Phase 1.5 lands (Reddit API access), the cron-based steady state returns to ~$4/month at MVP scale, with the $1/day app-level cap re-engaged.
 
 ### `INITIAL_PLAN.md` divergences
 
