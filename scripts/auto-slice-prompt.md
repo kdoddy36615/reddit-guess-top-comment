@@ -49,4 +49,4 @@ If you hit a real blocker (ambiguous spec, failing test you cannot resolve, miss
 - Do not amend prior commits. New commit only.
 - Do not start any other issue, even if you finish quickly.
 - Use `pnpm`, never `npm`.
-- Do not commit `.env*` files or `src/lib/supabase/database.types.ts`.
+- Do not commit `.env*` files. (`src/lib/supabase/database.types.ts` IS committed — regenerate and commit after schema changes.)

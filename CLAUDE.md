@@ -72,5 +72,5 @@ Per the `tdd` skill: tests verify **behavior through public interfaces**, not im
 - Don't add tRPC. Route handlers + Zod is enough.
 - Don't render the top-comment text in the round page HTML before a guess. Spoiler-safe via `/api/round/[id]/reveal` post-guess only.
 - Don't reintroduce `/subreddit/[name]` pages. Removed during design grilling. `/archive` does that job.
-- Don't commit `.env.local` or `src/lib/supabase/database.types.ts` (both gitignored).
+- Don't commit `.env.local` (gitignored). `src/lib/supabase/database.types.ts` IS committed (Vercel needs it at build time) — regenerate and commit after schema changes.
 - Don't aggressively widen the ingest image filter (e.g. add `is_gallery`, `i.redd.it` domain rejections). Round pages will display attached images in a future slice — image content is *deferred*, not permanently out of scope. The current `post_hint === 'image'` filter plus the gate's "depends on an image" reject rule are sufficient for MVP. Harden the gate prompt before the deterministic filter.
