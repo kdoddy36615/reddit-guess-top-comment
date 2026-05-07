@@ -33,6 +33,26 @@ export async function insertGuess(
   return { id: data.id };
 }
 
+/**
+ * Anonymized recent guesses for a round, used to give /round/[id] textual
+ * depth without leaking per-player scores. Filtered by `minScore` so spam
+ * (off-topic guesses) doesn't poison the page.
+ */
+export async function listRecentGuessesForRound(
+  db: Db,
+  args: { roundId: string; limit: number; minScore: number },
+): Promise<{ guessText: string }[]> {
+  const { data, error } = await db
+    .from('guesses')
+    .select('guess_text')
+    .eq('round_id', args.roundId)
+    .gte('score', args.minScore)
+    .order('submitted_at', { ascending: false })
+    .limit(args.limit);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ guessText: r.guess_text }));
+}
+
 export async function findGuess(
   db: Db,
   args: { sessionId: string; roundId: string; playerId: string },

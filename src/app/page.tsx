@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { StartPlayingButton } from './start-playing-button';
 
@@ -26,6 +27,14 @@ export default async function Home() {
           Playing as {player.nickname}
         </p>
       )}
+      <nav className="flex gap-4 text-sm text-zinc-500">
+        <Link href="/daily" className="hover:underline">
+          Daily challenge
+        </Link>
+        <Link href="/archive" className="hover:underline">
+          Browse all rounds
+        </Link>
+      </nav>
     </main>
   );
 }

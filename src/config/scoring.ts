@@ -25,4 +25,10 @@ export const SCORING_CONFIG = {
     joke_structure: 10,
     keyword_overlap: 5,
   },
+  /**
+   * Score threshold for the public "Recent guesses" sidebar on round pages.
+   * Below this we treat the guess as off-topic / noise and exclude it so
+   * spam doesn't poison the page's textual content for crawlers + humans.
+   */
+  recentGuessesMinScore: 40,
 } as const;

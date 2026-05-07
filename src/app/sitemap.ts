@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { countAutoPublishedRounds, listAutoPublishedForSitemap } from '@/db/rounds';
+import { ARCHIVE_PAGE_SIZE } from '@/lib/archive-pagination';
 import { getSiteUrl } from '@/lib/site-url';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
@@ -38,6 +39,15 @@ export default async function sitemap(props: {
 
   // Hub pages live in shard 0 only — they're not duplicated across shards.
   if (id === 0) {
+    const total = await countAutoPublishedRounds(db);
+    const archivePages = Math.max(1, Math.ceil(total / ARCHIVE_PAGE_SIZE));
+    const archiveEntries: MetadataRoute.Sitemap = Array.from({ length: archivePages }, (_, i) => ({
+      url: i === 0 ? `${baseUrl}/archive` : `${baseUrl}/archive?page=${i + 1}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.6,
+    }));
+
     return [
       {
         url: baseUrl,
@@ -51,6 +61,7 @@ export default async function sitemap(props: {
         changeFrequency: 'daily',
         priority: 0.9,
       },
+      ...archiveEntries,
       ...roundEntries,
     ];
   }

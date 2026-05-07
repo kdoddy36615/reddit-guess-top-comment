@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { getPublicRound } from '@/db/rounds';
+import { SCORING_CONFIG } from '@/config/scoring';
+import { listRecentGuessesForRound } from '@/db/guesses';
+import { getPublicRound, listMoreFromSubreddit } from '@/db/rounds';
 import { findOrCreateSoloSession } from '@/db/sessions';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { buildQuizJsonLd } from '@/lib/seo/quiz-jsonld';
@@ -47,7 +50,30 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
   const round = await getPublicRound(db, id);
   if (!round) notFound();
 
-  const session = await findOrCreateSoloSession(db, { playerId: player.id, roundId: round.id });
+  const [session, rawRecentGuesses, moreFromSubreddit] = await Promise.all([
+    findOrCreateSoloSession(db, { playerId: player.id, roundId: round.id }),
+    listRecentGuessesForRound(db, {
+      roundId: round.id,
+      // Over-fetch so dedup-by-text still leaves us with up to 5 unique entries.
+      limit: 20,
+      minScore: SCORING_CONFIG.recentGuessesMinScore,
+    }),
+    listMoreFromSubreddit(db, {
+      subreddit: round.subreddit,
+      excludeRoundId: round.id,
+      limit: 6,
+    }),
+  ]);
+
+  const recentGuesses: { guessText: string }[] = [];
+  const seen = new Set<string>();
+  for (const g of rawRecentGuesses) {
+    const key = g.guessText.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    recentGuesses.push(g);
+    if (recentGuesses.length === 5) break;
+  }
 
   const jsonLd = buildQuizJsonLd({
     title: round.title,
@@ -71,6 +97,50 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
       <h1 className="mt-2 text-3xl font-semibold leading-tight">{round.title}</h1>
       <p className="mt-4 text-zinc-600">Guess what the top comment said. One sentence is enough.</p>
       <GuessClient roundId={round.id} sessionId={session.id} />
+
+      {recentGuesses.length > 0 && (
+        <aside aria-labelledby="recent-guesses-heading" className="mt-10 border-t pt-6">
+          <h2
+            id="recent-guesses-heading"
+            className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+          >
+            Recent guesses
+          </h2>
+          <ul className="mt-3 space-y-2 text-zinc-700">
+            {recentGuesses.map((g) => (
+              <li key={g.guessText} className="text-sm italic">
+                "{g.guessText}"
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+
+      {moreFromSubreddit.length > 0 && (
+        <aside aria-labelledby="more-from-sub-heading" className="mt-10 border-t pt-6">
+          <h2
+            id="more-from-sub-heading"
+            className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+          >
+            More from r/{round.subreddit}
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {moreFromSubreddit.map((r) => (
+              <li key={r.id}>
+                <Link href={`/round/${r.id}`} className="text-sm text-blue-700 hover:underline">
+                  {r.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+
+      <p className="mt-10 text-sm text-zinc-500">
+        <Link href="/archive" className="hover:underline">
+          Browse all rounds →
+        </Link>
+      </p>
     </main>
   );
 }

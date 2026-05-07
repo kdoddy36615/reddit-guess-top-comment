@@ -4,7 +4,9 @@ import {
   countAutoPublishedRounds,
   getPublicRound,
   getRoundForScoring,
+  listAutoPublishedForArchive,
   listAutoPublishedForSitemap,
+  listMoreFromSubreddit,
 } from './rounds';
 
 function fakeDb(rows: Record<string, unknown>[]) {
@@ -87,6 +89,81 @@ describe('countAutoPublishedRounds', () => {
     };
     const db = { from: vi.fn(() => builder) } as any;
     expect(await countAutoPublishedRounds(db)).toBe(0);
+  });
+});
+
+describe('listMoreFromSubreddit', () => {
+  it('returns up to N other auto_published rounds in the same subreddit, excluding the current round', async () => {
+    const builder: any = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      neq: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      limit: vi.fn(async () => ({
+        data: [
+          { id: 'r2', title: 'Title 2' },
+          { id: 'r3', title: 'Title 3' },
+        ],
+        error: null,
+      })),
+    };
+    const db = { from: vi.fn(() => builder) } as any;
+
+    const rows = await listMoreFromSubreddit(db, {
+      subreddit: 'tifu',
+      excludeRoundId: 'r1',
+      limit: 6,
+    });
+
+    expect(db.from).toHaveBeenCalledWith('rounds');
+    expect(builder.select).toHaveBeenCalledWith('id, title');
+    expect(builder.eq).toHaveBeenCalledWith('status', 'auto_published');
+    expect(builder.eq).toHaveBeenCalledWith('subreddit', 'tifu');
+    expect(builder.neq).toHaveBeenCalledWith('id', 'r1');
+    expect(builder.order).toHaveBeenCalledWith('published_at', { ascending: false });
+    expect(builder.limit).toHaveBeenCalledWith(6);
+    expect(rows).toEqual([
+      { id: 'r2', title: 'Title 2' },
+      { id: 'r3', title: 'Title 3' },
+    ]);
+  });
+});
+
+describe('listAutoPublishedForArchive', () => {
+  it('returns id + title + subreddit + publishedAt newest-first, paginated', async () => {
+    const builder: any = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      range: vi.fn(async () => ({
+        data: [
+          {
+            id: 'r3',
+            title: 'Newest',
+            subreddit: 'tifu',
+            published_at: '2026-04-03T00:00:00Z',
+          },
+          {
+            id: 'r2',
+            title: 'Older',
+            subreddit: 'AskReddit',
+            published_at: '2026-04-02T00:00:00Z',
+          },
+        ],
+        error: null,
+      })),
+    };
+    const db = { from: vi.fn(() => builder) } as any;
+
+    const rows = await listAutoPublishedForArchive(db, { offset: 0, limit: 50 });
+
+    expect(builder.eq).toHaveBeenCalledWith('status', 'auto_published');
+    expect(builder.order).toHaveBeenCalledWith('published_at', { ascending: false });
+    expect(builder.range).toHaveBeenCalledWith(0, 49);
+    expect(rows).toEqual([
+      { id: 'r3', title: 'Newest', subreddit: 'tifu', publishedAt: '2026-04-03T00:00:00Z' },
+      { id: 'r2', title: 'Older', subreddit: 'AskReddit', publishedAt: '2026-04-02T00:00:00Z' },
+    ]);
   });
 });
 
