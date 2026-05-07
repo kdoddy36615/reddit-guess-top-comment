@@ -29,6 +29,7 @@ describe('/dev/components page', () => {
       '#score-reveal',
       '#comment-card',
       '#leaderboard-row',
+      '#nickname-prompt',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -51,6 +52,7 @@ describe('/dev/components page', () => {
       'score-reveal',
       'comment-card',
       'leaderboard-row',
+      'nickname-prompt',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -227,6 +229,18 @@ describe('/dev/components page', () => {
     // Top-3 list contributes three default rows; you-cluster contributes two more.
     const defaultRows = root.querySelectorAll('[data-variant="default"]');
     expect(defaultRows.length).toBe(5);
+  });
+
+  it('covers NicknamePrompt with empty + pre-filled examples', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('nickname-prompt') as HTMLElement;
+    expect(root).not.toBeNull();
+    for (const label of ['pre-filled', 'empty']) {
+      expect(within(root).getAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);
+    }
+    // Two NicknamePrompt instances rendered (one per example).
+    const forms = root.querySelectorAll('[data-testid="nickname-prompt"]');
+    expect(forms.length).toBe(2);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {

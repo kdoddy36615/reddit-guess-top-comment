@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { GuessInputSection } from './guess-input-section';
+import { NicknamePromptSection } from './nickname-prompt-section';
 import { DialogSection, TabsSection, ToastSection, TooltipSection } from './overlay-sections';
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ const SECTIONS = [
   { id: 'score-reveal', label: 'ScoreReveal' },
   { id: 'comment-card', label: 'CommentCard' },
   { id: 'leaderboard-row', label: 'LeaderboardRow' },
+  { id: 'nickname-prompt', label: 'NicknamePrompt' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -490,6 +492,7 @@ export default function DevComponentsPage() {
         <ScoreRevealSection />
         <CommentCardSection />
         <LeaderboardRowSection />
+        <NicknamePromptSection />
       </div>
     </main>
   );
