@@ -1,7 +1,15 @@
+import type { Metadata } from 'next';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { StartPlayingButton } from './start-playing-button';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: { absolute: 'Guess the Top Comment — a Reddit guessing game' },
+  description:
+    'Read a Reddit post title. Guess what the top comment said. See how close you got. New rounds every day.',
+  alternates: { canonical: '/' },
+};
 
 export default async function Home() {
   const player = await getCurrentPlayer();

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { findGuessByShareToken } from '@/db/guesses';
 import { getPublicRound } from '@/db/rounds';
@@ -8,6 +9,25 @@ import { reactionFor } from '@/scoring/reaction';
 import { GuessClient } from '../../guess-client';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; token: string }>;
+}): Promise<Metadata> {
+  const { id, token } = await params;
+  const db = createServiceRoleClient();
+  const round = await getPublicRound(db, id);
+  if (!round) return { title: 'Round not found' };
+  const friend = await findGuessByShareToken(db, { roundId: round.id, token });
+  if (!friend) return { title: round.title };
+  return {
+    title: `${friend.nickname} got ${friend.score}% — beat it!`,
+    description: `Can you beat ${friend.nickname}'s ${friend.score}% guess on this r/${round.subreddit} post? "${round.title}"`,
+    // Per-share-token URLs aren't useful as search results — keep them out of the index.
+    robots: { index: false, follow: true },
+  };
+}
 
 const BAND_COLOR: Record<string, string> = {
   way_off: 'bg-red-100 text-red-900 border-red-300',

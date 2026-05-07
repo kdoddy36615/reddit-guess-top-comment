@@ -67,6 +67,34 @@ export async function getRoundForScoring(db: Db, id: string): Promise<RoundForSc
   };
 }
 
+export type SitemapRoundRow = { id: string; publishedAt: string };
+
+/** Page through `auto_published` rounds for sitemap generation. */
+export async function listAutoPublishedForSitemap(
+  db: Db,
+  opts: { offset: number; limit: number },
+): Promise<SitemapRoundRow[]> {
+  const { offset, limit } = opts;
+  const { data, error } = await db
+    .from('rounds')
+    .select('id, published_at')
+    .eq('status', 'auto_published')
+    .order('published_at', { ascending: true })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ id: r.id, publishedAt: r.published_at as string }));
+}
+
+/** Count of `auto_published` rounds. Used to compute sitemap shard count. */
+export async function countAutoPublishedRounds(db: Db): Promise<number> {
+  const { count, error } = await db
+    .from('rounds')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'auto_published');
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** Just the top comment text. Used by the reveal endpoint after a guess. */
 export async function getRoundReveal(
   db: Db,

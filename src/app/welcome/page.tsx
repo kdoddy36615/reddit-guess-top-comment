@@ -1,8 +1,14 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { OnboardClient } from './onboard-client';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Pick a name and play',
+  robots: { index: false, follow: true },
+};
 
 export default async function WelcomePage({
   searchParams,

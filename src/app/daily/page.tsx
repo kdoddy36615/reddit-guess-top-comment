@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { GuessClient } from '@/app/round/[id]/guess-client';
 import { getPublicRound } from '@/db/rounds';
@@ -7,6 +8,13 @@ import { InsufficientRoundsError } from '@/lib/daily';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Daily challenge',
+  description:
+    "Today's five Reddit posts — guess each top comment and compare your score. New rounds every day at midnight UTC.",
+  alternates: { canonical: '/daily' },
+};
 
 export default async function DailyPage() {
   const player = await getCurrentPlayer();
