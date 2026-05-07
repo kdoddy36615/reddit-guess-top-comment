@@ -10,6 +10,7 @@ type GuessResponse = {
   score: number;
   reaction: { band: ReactionBand; label: string; message: string };
   breakdown?: ScoreBreakdown;
+  shareToken?: string;
   alreadyGuessed?: boolean;
 };
 
@@ -42,6 +43,7 @@ export function GuessClient({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GuessResponse | null>(null);
   const [topComment, setTopComment] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,6 +74,21 @@ export function GuessClient({
       setError(err instanceof Error ? err.message : 'Network error');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function onShare() {
+    if (!result?.shareToken) return;
+    const url = `${window.location.origin}/round/${roundId}/result/${result.shareToken}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      }
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch {
+      // Clipboard blocked — surface the URL inline so the user can copy manually.
+      window.prompt('Copy this share URL:', url);
     }
   }
 
@@ -141,6 +158,16 @@ export function GuessClient({
               {topComment}
             </p>
           </div>
+        )}
+        {result.shareToken && (
+          <button
+            type="button"
+            onClick={onShare}
+            data-testid="share-result"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-zinc-800 hover:bg-zinc-50"
+          >
+            {shareCopied ? 'Link copied!' : 'Share result'}
+          </button>
         )}
         {finalSummary ? (
           <div

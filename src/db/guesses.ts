@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { shareToken } from '@/lib/share-token';
 import type { Database } from '@/lib/supabase/database.types';
 import type { ScoreBreakdown } from '@/scoring';
 
@@ -46,4 +47,47 @@ export async function findGuess(
   if (error) throw error;
   if (!data) return null;
   return { score: data.score, guessText: data.guess_text };
+}
+
+export type ShareResult = {
+  playerId: string;
+  nickname: string;
+  guessText: string;
+  score: number;
+};
+
+/**
+ * Resolve a /round/[roundId]/result/[token] share URL back to the original
+ * (player, score, guess). Tokens are deterministic hashes of (player, round),
+ * so we scan all guesses scoped to the round and match by recomputing the
+ * token. Bounded by the number of guesses on a single round.
+ */
+export async function findGuessByShareToken(
+  db: Db,
+  args: { roundId: string; token: string },
+): Promise<ShareResult | null> {
+  const { data, error } = await db
+    .from('guesses')
+    .select('player_id, guess_text, score, players ( nickname )')
+    .eq('round_id', args.roundId);
+  if (error) throw error;
+  if (!data) return null;
+
+  for (const row of data as Array<{
+    player_id: string;
+    guess_text: string;
+    score: number;
+    players: { nickname: string } | { nickname: string }[] | null;
+  }>) {
+    if (shareToken(row.player_id, args.roundId) !== args.token) continue;
+    const player = Array.isArray(row.players) ? row.players[0] : row.players;
+    if (!player) continue;
+    return {
+      playerId: row.player_id,
+      nickname: player.nickname,
+      guessText: row.guess_text,
+      score: row.score,
+    };
+  }
+  return null;
 }
