@@ -59,6 +59,12 @@
   /* motion */
   --ease-out: cubic-bezier(.2,.7,.2,1);
   --ease-in-out: cubic-bezier(.65,.05,.35,1);
+
+  /* animation utilities — DESIGN.md §5
+     score-up + score-color compose the signature reveal: the score number
+     rises and overshoots while its color tweens text-faint → band-color. */
+  --animate-score-up: score-up 550ms var(--ease-out) both, score-color 550ms var(--ease-out) both;
+  --animate-fade-in: fade-in 120ms var(--ease-out) both;
 }
 
 @layer base {
@@ -76,23 +82,23 @@
   --font-hand: var(--font-caveat), "Patrick Hand", cursive;
 }
 
-@keyframes reveal-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* DESIGN.md §5 — signature score-reveal animation.
+   Reduced-motion fallback: the `motion-safe:` prefix on the consuming class
+   gates these keyframes, so prefers-reduced-motion users get no transforms.
+   The number's final color comes from `--band-color` (set inline per-band on
+   the container), so the band color is correct in both motion modes. */
+@keyframes score-up {
+  0%   { transform: translateY(20px) scale(0.8); opacity: 0; }
+  60%  { transform: translateY(-4px) scale(1.06); opacity: 1; }
+  100% { transform: translateY(0)    scale(1);    opacity: 1; }
 }
 
-[data-testid='reveal'] {
-  animation: reveal-in 350ms ease-out both;
+@keyframes score-color {
+  from { color: var(--color-text-faint); }
+  to   { color: var(--band-color); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-testid='reveal'] {
-    animation: none;
-  }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

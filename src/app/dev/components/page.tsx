@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { RoundCard } from '@/components/game/round-card';
+import { ScoreReveal } from '@/components/game/score-reveal';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const SECTIONS = [
   { id: 'tooltip', label: 'Tooltip' },
   { id: 'round-card', label: 'RoundCard' },
   { id: 'guess-input', label: 'GuessInput' },
+  { id: 'score-reveal', label: 'ScoreReveal' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -481,7 +483,73 @@ export default function DevComponentsPage() {
         <TooltipSection />
         <RoundCardSection />
         <GuessInputSection />
+        <ScoreRevealSection />
       </div>
     </main>
+  );
+}
+
+function ScoreRevealSection() {
+  // One example per band — bullseye / close / almost / way_off — so reviewers
+  // can confirm the band-color mapping and see the gradient/border in context.
+  const examples: Array<{
+    label: string;
+    guess: string;
+    score: number;
+    band: 'bullseye' | 'close' | 'almost' | 'way_off';
+    matchedRank?: number;
+  }> = [
+    {
+      label: 'bullseye',
+      guess: "sounds like she's the boss now.",
+      score: 92,
+      band: 'bullseye',
+      matchedRank: 1,
+    },
+    {
+      label: 'close',
+      guess: 'promotion through cat photo, classic.',
+      score: 71,
+      band: 'close',
+      matchedRank: 2,
+    },
+    {
+      label: 'almost',
+      guess: 'the cat is the only competent one.',
+      score: 48,
+      band: 'almost',
+      matchedRank: 3,
+    },
+    {
+      label: 'way off',
+      guess: 'have you tried turning it off and on again?',
+      score: 12,
+      band: 'way_off',
+    },
+  ];
+
+  return (
+    <section id="score-reveal" className="scroll-mt-20 space-y-6">
+      <header>
+        <h2 className="font-display text-2xl font-semibold text-text">ScoreReveal</h2>
+        <p className="font-mono text-xs text-text-faint">
+          band-by-band · signature score-up animation — DESIGN.md §2 + §5
+        </p>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {examples.map((ex) => (
+          <div key={ex.band} className="space-y-1.5">
+            <p className="font-mono text-xs uppercase tracking-wider text-text-muted">{ex.label}</p>
+            <ScoreReveal
+              guess={ex.guess}
+              score={ex.score}
+              band={ex.band}
+              matchedRank={ex.matchedRank}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

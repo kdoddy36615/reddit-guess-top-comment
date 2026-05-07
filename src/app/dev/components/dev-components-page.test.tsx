@@ -26,6 +26,7 @@ describe('/dev/components page', () => {
       '#tooltip',
       '#round-card',
       '#guess-input',
+      '#score-reveal',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -45,6 +46,7 @@ describe('/dev/components page', () => {
       'tooltip',
       'round-card',
       'guess-input',
+      'score-reveal',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -179,6 +181,19 @@ describe('/dev/components page', () => {
     expect(busyRoots.length).toBe(1);
     // The error example has helper text.
     expect(within(root).getAllByTestId('guess-input-error').length).toBe(1);
+  });
+
+  it('covers ScoreReveal with one example per band (bullseye / close / almost / way off)', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('score-reveal') as HTMLElement;
+    expect(root).not.toBeNull();
+    for (const label of ['bullseye', 'close', 'almost', 'way off']) {
+      expect(within(root).getAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);
+    }
+    const reveals = root.querySelectorAll('[data-testid="score-reveal"]');
+    expect(reveals.length).toBe(4);
+    const bands = Array.from(reveals).map((el) => el.getAttribute('data-band'));
+    expect(new Set(bands)).toEqual(new Set(['bullseye', 'close', 'almost', 'way_off']));
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {
