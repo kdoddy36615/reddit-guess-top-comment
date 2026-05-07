@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { findGuess, insertGuess } from '@/db/guesses';
 import { getRoundForScoring } from '@/db/rounds';
-import { findOrCreateSoloSession, setSessionState } from '@/db/sessions';
+import { findOrCreateSoloSession, isRoundInSession, setSessionState } from '@/db/sessions';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { embedText } from '@/lib/gemini/embed';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -14,6 +14,7 @@ export const runtime = 'nodejs';
 const Body = z.object({
   roundId: z.string().uuid(),
   guess: z.string().trim().min(1).max(500),
+  sessionId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
-  const { roundId, guess } = parsed.data;
+  const { roundId, guess, sessionId: explicitSessionId } = parsed.data;
 
   const player = await getCurrentPlayer();
   if (!player) {
@@ -35,7 +36,16 @@ export async function POST(req: NextRequest) {
   }
 
   const playerId = player.id;
-  const session = await findOrCreateSoloSession(db, { playerId, roundId });
+  let session: { id: string };
+  if (explicitSessionId) {
+    const ok = await isRoundInSession(db, { sessionId: explicitSessionId, roundId });
+    if (!ok) {
+      return NextResponse.json({ error: 'Round is not part of this session' }, { status: 400 });
+    }
+    session = { id: explicitSessionId };
+  } else {
+    session = await findOrCreateSoloSession(db, { playerId, roundId });
+  }
 
   // Idempotency: if this player already guessed for this session+round,
   // return the prior result instead of double-scoring.

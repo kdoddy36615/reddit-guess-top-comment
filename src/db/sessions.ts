@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { dailyRoomId, pickDailyRounds } from '@/lib/daily';
 import { nextRoundIndex, pickRound, type Rng } from '@/lib/round-selection';
 import type { Database } from '@/lib/supabase/database.types';
 
@@ -53,6 +54,124 @@ export async function findOrCreateSoloSession(
     currentRoundId: inserted.data.current_round_id,
     currentRoundState: inserted.data.current_round_state as RoundState,
   };
+}
+
+export async function findOrCreateDailySession(
+  db: Db,
+  args: { date: Date; roundCount?: number },
+): Promise<{ id: string; roomId: string }> {
+  const roomId = dailyRoomId(args.date);
+
+  const existing = await db
+    .from('game_sessions')
+    .select('id')
+    .eq('mode', 'daily')
+    .eq('room_id', roomId)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data) return { id: existing.data.id, roomId };
+
+  const roundCount = args.roundCount ?? 5;
+
+  const eligible = await db.from('rounds').select('id').eq('status', 'auto_published');
+  if (eligible.error) throw eligible.error;
+  const candidateIds = ((eligible.data ?? []) as { id: string }[]).map((r) => r.id);
+  const picked = pickDailyRounds(candidateIds, roomId, roundCount);
+
+  const inserted = await db
+    .from('game_sessions')
+    .insert({
+      mode: 'daily',
+      room_id: roomId,
+      current_round_id: picked[0],
+      current_round_state: 'guessing',
+    })
+    .select('id')
+    .single();
+
+  if (inserted.error) {
+    // 23505 = unique_violation — a concurrent caller created today's daily
+    // first. Re-SELECT and return the winner; do not write session_rounds.
+    if ((inserted.error as { code?: string }).code === '23505') {
+      const winner = await db
+        .from('game_sessions')
+        .select('id')
+        .eq('mode', 'daily')
+        .eq('room_id', roomId)
+        .maybeSingle();
+      if (winner.error) throw winner.error;
+      if (winner.data) return { id: winner.data.id, roomId };
+    }
+    throw inserted.error;
+  }
+
+  const sessionId = inserted.data.id;
+  const sessionRounds = picked.map((round_id, round_index) => ({
+    session_id: sessionId,
+    round_index,
+    round_id,
+  }));
+  const sr = await db.from('session_rounds').insert(sessionRounds);
+  if (sr.error) throw sr.error;
+
+  return { id: sessionId, roomId };
+}
+
+export type DailyProgress = {
+  totalRounds: number;
+  guessedCount: number;
+  currentRoundId: string | null;
+  isComplete: boolean;
+  totalScore: number;
+};
+
+export async function getPlayerDailyProgress(
+  db: Db,
+  args: { sessionId: string; playerId: string },
+): Promise<DailyProgress> {
+  const sr = await db
+    .from('session_rounds')
+    .select('round_index, round_id')
+    .eq('session_id', args.sessionId)
+    .order('round_index', { ascending: true });
+  if (sr.error) throw sr.error;
+  const rounds = ((sr.data ?? []) as { round_index: number; round_id: string }[])
+    .slice()
+    .sort((a, b) => a.round_index - b.round_index);
+
+  const gs = await db
+    .from('guesses')
+    .select('round_id, score')
+    .eq('session_id', args.sessionId)
+    .eq('player_id', args.playerId);
+  if (gs.error) throw gs.error;
+  const guesses = (gs.data ?? []) as { round_id: string; score: number }[];
+
+  const guessedRoundIds = new Set(guesses.map((g) => g.round_id));
+  const totalScore = guesses.reduce((sum, g) => sum + g.score, 0);
+  const next = rounds.find((r) => !guessedRoundIds.has(r.round_id)) ?? null;
+
+  return {
+    totalRounds: rounds.length,
+    guessedCount: guessedRoundIds.size,
+    currentRoundId: next?.round_id ?? null,
+    isComplete: rounds.length > 0 && next === null,
+    totalScore,
+  };
+}
+
+export async function isRoundInSession(
+  db: Db,
+  args: { sessionId: string; roundId: string },
+): Promise<boolean> {
+  const { data, error } = await db
+    .from('session_rounds')
+    .select('round_id')
+    .eq('session_id', args.sessionId)
+    .eq('round_id', args.roundId)
+    .maybeSingle();
+  if (error) throw error;
+  return data !== null;
 }
 
 export async function setSessionState(db: Db, sessionId: string, state: RoundState): Promise<void> {

@@ -20,7 +20,21 @@ const BAND_COLOR: Record<ReactionBand, string> = {
   bullseye: 'bg-violet-200 text-violet-950 border-violet-400',
 };
 
-export function GuessClient({ roundId, sessionId }: { roundId: string; sessionId: string }) {
+export function GuessClient({
+  roundId,
+  sessionId,
+  variant = 'solo',
+  advanceHref,
+  finalSummary,
+}: {
+  roundId: string;
+  sessionId: string;
+  variant?: 'solo' | 'daily';
+  advanceHref?: string;
+  // When set, this round is the final one in the session. After submission,
+  // the "Next round" button is replaced with a completion summary panel.
+  finalSummary?: { totalRounds: number; priorTotalScore: number };
+}) {
   const router = useRouter();
   const [guess, setGuess] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -38,7 +52,9 @@ export function GuessClient({ roundId, sessionId }: { roundId: string; sessionId
       const res = await fetch('/api/guess', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ roundId, guess }),
+        body: JSON.stringify(
+          variant === 'daily' ? { roundId, guess, sessionId } : { roundId, guess },
+        ),
       });
       if (!res.ok) {
         setError(`Submit failed (${res.status})`);
@@ -63,6 +79,11 @@ export function GuessClient({ roundId, sessionId }: { roundId: string; sessionId
     setAdvancing(true);
     setError(null);
     try {
+      if (advanceHref) {
+        router.push(advanceHref);
+        router.refresh();
+        return;
+      }
       const res = await fetch('/api/session/next', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -121,15 +142,33 @@ export function GuessClient({ roundId, sessionId }: { roundId: string; sessionId
             </p>
           </div>
         )}
-        <button
-          type="button"
-          onClick={advance}
-          disabled={advancing}
-          data-testid="next-round"
-          className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-white disabled:opacity-50"
-        >
-          {advancing ? 'Loading…' : 'Next round'}
-        </button>
+        {finalSummary ? (
+          <div
+            className="rounded-lg border border-zinc-200 bg-white p-4 text-center"
+            data-testid="final-summary"
+          >
+            <p className="text-lg font-semibold text-zinc-900">
+              You finished today's daily — {finalSummary.totalRounds}/{finalSummary.totalRounds}
+            </p>
+            <p className="mt-1 text-sm text-zinc-700">
+              Total score:{' '}
+              <span className="font-semibold tabular-nums">
+                {finalSummary.priorTotalScore + result.score}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">Come back tomorrow for the next one.</p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={advance}
+            disabled={advancing}
+            data-testid="next-round"
+            className="w-full rounded-lg bg-zinc-900 px-4 py-3 text-white disabled:opacity-50"
+          >
+            {advancing ? 'Loading…' : 'Next round'}
+          </button>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     );
@@ -159,15 +198,17 @@ export function GuessClient({ roundId, sessionId }: { roundId: string; sessionId
         >
           {submitting ? 'Scoring…' : 'Submit guess'}
         </button>
-        <button
-          type="button"
-          onClick={advance}
-          disabled={submitting || advancing}
-          data-testid="skip-round"
-          className="rounded-lg border border-zinc-300 px-4 py-3 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-        >
-          {advancing ? '…' : 'Skip'}
-        </button>
+        {variant === 'solo' && (
+          <button
+            type="button"
+            onClick={advance}
+            disabled={submitting || advancing}
+            data-testid="skip-round"
+            className="rounded-lg border border-zinc-300 px-4 py-3 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            {advancing ? '…' : 'Skip'}
+          </button>
+        )}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </form>
