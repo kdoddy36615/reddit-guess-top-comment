@@ -147,7 +147,7 @@ Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `
 - **Daily (`/daily`)**: 5 rounds auto-picked at midnight UTC via a deterministic seed derived from the date. Stored as a `game_sessions` row with `mode='daily'` and `room_id='daily-YYYY-MM-DD'`, plus 5 pre-filled `session_rounds`. A manual override (set the 5 round IDs by hand) is a future 10-line admin feature, not in MVP.
 - **Phase 2 rooms**: same `game_sessions` mechanism, with `mode='room'` and a generated 6-char `room_id`. No new table.
 
-### Schema (7 tables)
+### Schema (8 tables)
 
 1. **`rounds`** — Reddit post + LLM gate output + 768-dim embedding (Gemini `gemini-embedding-001` with `outputDimensionality: 768`) + lifecycle status (`pending_gate | auto_published | rejected | reported | unpublished`) + a `reddit_data` JSONB column that captures the full raw Reddit post object at ingest time (preview, gallery_data, media_metadata, thumbnail, domain, …) so a future image-display slice can render attachments without re-hitting Reddit. Reddit data and game metadata are denormalized into this single table; we'll split if a round is ever derived from a non-Reddit source.
 2. **`players`** — anonymous identity. `nickname`, `cookie_hash`, optional later linkage to `auth.users` via Supabase anonymous auth.
@@ -156,6 +156,7 @@ Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `
 5. **`guesses`** — keyed `(session_id, round_id, player_id)`, `UNIQUE` enforced. `score_breakdown` is JSONB so the bonus list can evolve without migrations.
 6. **`guess_embedding_cache`** — `normalized_text → vector(768)`, with `hit_count` for free analytics on common guesses. Cache embeddings (not scores) so score-algorithm changes never invalidate the cache.
 7. **`cron_budget`** + **`cron_runs`** — daily cost circuit breaker (`halted` flag) + per-run observability log.
+8. **`round_reports`** — per-`(round, player)` ledger of user-submitted reports, idempotent via the composite PK. The threshold-based auto-unpublish (`rounds.status` flips to `reported` once count ≥ `REPORT_THRESHOLD`, default 3) lives in `src/db/reports.ts` so tuning is a one-file change. Reported rounds disappear from gameplay, sitemap, and `/archive` automatically because all eligibility queries filter `status = 'auto_published'`.
 
 (`session_players` join table is **not** in MVP. Phase 2 adds it as a feature, not a migration. Solo play derives "who's in this session" from `SELECT DISTINCT player_id FROM guesses`.)
 

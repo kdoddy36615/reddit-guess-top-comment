@@ -10,6 +10,7 @@ import { buildQuizJsonLd } from '@/lib/seo/quiz-jsonld';
 import { getSiteUrl } from '@/lib/site-url';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { GuessClient } from './guess-client';
+import { ReportButton } from './report-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,11 +137,12 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
         </aside>
       )}
 
-      <p className="mt-10 text-sm text-zinc-500">
-        <Link href="/archive" className="hover:underline">
+      <div className="mt-10 flex items-center justify-between border-t pt-4">
+        <Link href="/archive" className="text-sm text-zinc-500 hover:underline">
           Browse all rounds →
         </Link>
-      </p>
+        <ReportButton roundId={round.id} />
+      </div>
     </main>
   );
 }
