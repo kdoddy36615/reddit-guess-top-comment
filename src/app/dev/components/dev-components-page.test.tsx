@@ -27,6 +27,7 @@ describe('/dev/components page', () => {
       '#round-card',
       '#guess-input',
       '#score-reveal',
+      '#comment-card',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -47,6 +48,7 @@ describe('/dev/components page', () => {
       'round-card',
       'guess-input',
       'score-reveal',
+      'comment-card',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -194,6 +196,20 @@ describe('/dev/components page', () => {
     expect(reveals.length).toBe(4);
     const bands = Array.from(reveals).map((el) => el.getAttribute('data-band'));
     expect(new Set(bands)).toEqual(new Set(['bullseye', 'close', 'almost', 'way_off']));
+  });
+
+  it('covers CommentCard with four example threads (single reply / nested replies / single comment / no replies)', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('comment-card') as HTMLElement;
+    expect(root).not.toBeNull();
+    for (const label of ['single reply', 'nested replies', 'single comment', 'no replies']) {
+      expect(within(root).getAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);
+    }
+    // At least one #1 (accent) top comment renders.
+    expect(within(root).getAllByText('#1').length).toBeGreaterThan(0);
+    // At least one reply rail renders somewhere in the section.
+    const replies = root.querySelectorAll('[data-variant="reply"]');
+    expect(replies.length).toBeGreaterThan(0);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {

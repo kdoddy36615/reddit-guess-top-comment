@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { CommentCard, CommentReply } from '@/components/game/comment-card';
 import { RoundCard } from '@/components/game/round-card';
 import { ScoreReveal } from '@/components/game/score-reveal';
 import { Avatar } from '@/components/ui/avatar';
@@ -33,6 +34,7 @@ const SECTIONS = [
   { id: 'round-card', label: 'RoundCard' },
   { id: 'guess-input', label: 'GuessInput' },
   { id: 'score-reveal', label: 'ScoreReveal' },
+  { id: 'comment-card', label: 'CommentCard' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -484,8 +486,98 @@ export default function DevComponentsPage() {
         <RoundCardSection />
         <GuessInputSection />
         <ScoreRevealSection />
+        <CommentCardSection />
       </div>
     </main>
+  );
+}
+
+function CommentCardSection() {
+  return (
+    <section id="comment-card" className="scroll-mt-20 space-y-6">
+      <header>
+        <h2 className="font-display text-2xl font-semibold text-text">CommentCard</h2>
+        <p className="font-mono text-xs text-text-faint">
+          Reddit-thread reply rail · top #1 (accent) / #2 #3 (disabled) · replies are NOT cards —
+          DESIGN.md §2 game components
+        </p>
+      </header>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">single reply</p>
+          <div className="space-y-3">
+            <CommentCard
+              rank={1}
+              user="redditor_42"
+              upvotes="14.2k"
+              text="sounds like she's the boss now."
+            >
+              <CommentReply
+                user="midnight_mike"
+                upvotes="4.1k"
+                text="promotion through cat photo, classic."
+              />
+            </CommentCard>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">
+            nested replies
+          </p>
+          <div className="space-y-3">
+            <CommentCard
+              rank={1}
+              user="workfromhomer"
+              upvotes="6.8k"
+              text="RIP your career — but at least the cat got a promotion."
+            >
+              <CommentReply user="anon_47" upvotes="2.3k" text="the cat is the only competent one.">
+                <CommentReply
+                  user="caffeineghost"
+                  upvotes="612"
+                  text="speak for yourself, I trained mine on slack."
+                />
+              </CommentReply>
+              <CommentReply
+                user="dev_null"
+                upvotes="412"
+                text="next quarter's report better be all paws."
+              />
+            </CommentCard>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">
+            single comment
+          </p>
+          <div className="space-y-3">
+            <CommentCard
+              rank={2}
+              user="caffeineghost"
+              upvotes="3.1k"
+              text="i would simply never speak of this again."
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-text-muted">no replies</p>
+          <div className="space-y-3">
+            <CommentCard
+              rank={1}
+              user="redditor_42"
+              upvotes="14.2k"
+              text="sounds like she's the boss now."
+            />
+            <CommentCard rank={2} user="workfromhomer" upvotes="6.8k" text="RIP your career." />
+            <CommentCard rank={3} user="caffeineghost" upvotes="3.1k" text="oof." />
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
