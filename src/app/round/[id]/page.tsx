@@ -91,13 +91,17 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <header className="mb-6 flex items-center justify-between">
-        <p className="text-sm uppercase tracking-wide text-zinc-500">r/{round.subreddit}</p>
-        <p className="text-sm text-zinc-600" data-testid="player-nickname">
+        <p className="text-sm font-semibold uppercase tracking-wide text-zinc-700">
+          r/{round.subreddit}
+        </p>
+        <p className="text-base text-zinc-800" data-testid="player-nickname">
           {player.nickname}
         </p>
       </header>
-      <h1 className="mt-2 text-3xl font-semibold leading-tight">{round.title}</h1>
-      <p className="mt-4 text-zinc-600">Guess what the top comment said. One sentence is enough.</p>
+      <h1 className="mt-2 text-4xl font-semibold leading-tight md:text-5xl">{round.title}</h1>
+      <p className="mt-4 text-lg text-zinc-700">
+        Guess what the top comment said. One sentence is enough.
+      </p>
       <GuessClient
         roundId={round.id}
         sessionId={session.id}

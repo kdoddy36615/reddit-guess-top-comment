@@ -131,17 +131,19 @@ export function GuessClient({
     return (
       <div className="mt-6 space-y-4" data-testid="reveal">
         <div
-          className={`rounded-lg border p-4 ${BAND_COLOR[result.reaction.band]}`}
+          className={`rounded-lg border p-5 ${BAND_COLOR[result.reaction.band]}`}
           data-testid="score-card"
         >
-          <div className="text-sm font-medium">{result.reaction.label}</div>
-          <div className="text-4xl font-bold tabular-nums" data-testid="score">
+          <div className="text-base font-semibold">{result.reaction.label}</div>
+          <div className="text-6xl font-bold tabular-nums leading-none" data-testid="score">
             {result.score}
           </div>
-          <div className="mt-1 text-sm">{result.reaction.message}</div>
-          <div className="mt-3 border-t border-current/20 pt-3 text-sm">
-            <div className="text-xs uppercase opacity-70">Your guess</div>
-            <p className="mt-0.5 italic" data-testid="your-guess">
+          <div className="mt-2 text-base">{result.reaction.message}</div>
+          <div className="mt-4 border-t border-current/20 pt-3 text-base">
+            <div className="text-xs font-semibold uppercase tracking-wide opacity-80">
+              Your guess
+            </div>
+            <p className="mt-1 italic" data-testid="your-guess">
               “{guess}”
             </p>
           </div>
@@ -156,9 +158,14 @@ export function GuessClient({
           )}
         </div>
         {topComment !== null && (
-          <div className="rounded-lg border border-zinc-200 bg-white p-4">
-            <div className="mb-1 text-xs uppercase text-zinc-500">Top comment</div>
-            <p className="whitespace-pre-wrap text-zinc-900" data-testid="top-comment">
+          <div className="rounded-lg border border-zinc-200 bg-white p-5">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-700">
+              Top comment
+            </div>
+            <p
+              className="whitespace-pre-wrap text-lg leading-snug text-zinc-900"
+              data-testid="top-comment"
+            >
               {topComment}
             </p>
           </div>

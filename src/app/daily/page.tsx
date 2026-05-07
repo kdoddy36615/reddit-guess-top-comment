@@ -86,20 +86,24 @@ export default async function DailyPage() {
     <main className="mx-auto max-w-2xl p-6">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <p className="text-sm uppercase tracking-wide text-zinc-500">
+          <p className="text-sm font-semibold uppercase tracking-wide text-zinc-700">
             Daily — Round {roundNumber}/{progress.totalRounds}
           </p>
-          <p className="text-xs text-zinc-500" data-testid="daily-running-total">
+          <p className="text-sm text-zinc-700" data-testid="daily-running-total">
             Total so far: <span className="tabular-nums">{progress.totalScore}</span>
           </p>
         </div>
-        <p className="text-sm text-zinc-600" data-testid="player-nickname">
+        <p className="text-base text-zinc-800" data-testid="player-nickname">
           {player.nickname}
         </p>
       </header>
-      <p className="text-sm uppercase tracking-wide text-zinc-500">r/{round.subreddit}</p>
-      <h1 className="mt-2 text-3xl font-semibold leading-tight">{round.title}</h1>
-      <p className="mt-4 text-zinc-600">Guess what the top comment said. One sentence is enough.</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-zinc-700">
+        r/{round.subreddit}
+      </p>
+      <h1 className="mt-2 text-4xl font-semibold leading-tight md:text-5xl">{round.title}</h1>
+      <p className="mt-4 text-lg text-zinc-700">
+        Guess what the top comment said. One sentence is enough.
+      </p>
       <GuessClient
         key={round.id}
         roundId={round.id}
