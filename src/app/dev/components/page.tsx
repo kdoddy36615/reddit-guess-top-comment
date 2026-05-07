@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { DialogSection, TabsSection, ToastSection, TooltipSection } from './overlay-sections';
 
 export const metadata: Metadata = {
   title: 'Components matrix · dev',
@@ -22,6 +23,10 @@ const SECTIONS = [
   { id: 'avatar', label: 'Avatar' },
   { id: 'skeleton', label: 'Skeleton' },
   { id: 'progress', label: 'Progress' },
+  { id: 'dialog', label: 'Dialog' },
+  { id: 'toast', label: 'Toast' },
+  { id: 'tabs', label: 'Tabs' },
+  { id: 'tooltip', label: 'Tooltip' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -408,6 +413,10 @@ export default function DevComponentsPage() {
         <AvatarSection />
         <SkeletonSection />
         <ProgressSection />
+        <DialogSection />
+        <ToastSection />
+        <TabsSection />
+        <TooltipSection />
       </div>
     </main>
   );

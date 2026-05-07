@@ -17,6 +17,10 @@ describe('/dev/components page', () => {
       '#avatar',
       '#skeleton',
       '#progress',
+      '#dialog',
+      '#toast',
+      '#tabs',
+      '#tooltip',
     ]) {
       expect(
         within(nav).getByRole('link', { name: new RegExp(anchor.slice(1), 'i') }),
@@ -32,6 +36,10 @@ describe('/dev/components page', () => {
       'avatar',
       'skeleton',
       'progress',
+      'dialog',
+      'toast',
+      'tabs',
+      'tooltip',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -111,6 +119,27 @@ describe('/dev/components page', () => {
     expect(root).not.toBeNull();
     const skeletons = root.querySelectorAll('[aria-hidden="true"].animate-pulse');
     expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it('mounts the four overlay primitives (dialog, toast, tabs, tooltip)', () => {
+    render(<DevComponentsPage />);
+    // Dialog section has the trigger button (closed by default).
+    const dialog = document.getElementById('dialog') as HTMLElement;
+    expect(within(dialog).getByRole('button', { name: /open dialog/i })).toBeInTheDocument();
+
+    // Toast section has its trigger button + the live region (Toaster).
+    const toast = document.getElementById('toast') as HTMLElement;
+    expect(within(toast).getByRole('button', { name: /fire default/i })).toBeInTheDocument();
+    expect(within(toast).getByRole('region', { name: /notifications/i })).toBeInTheDocument();
+
+    // Tabs section has a tablist with three triggers.
+    const tabs = document.getElementById('tabs') as HTMLElement;
+    expect(within(tabs).getByRole('tablist')).toBeInTheDocument();
+    expect(within(tabs).getAllByRole('tab').length).toBeGreaterThanOrEqual(3);
+
+    // Tooltip section has trigger buttons (tip itself is closed at rest).
+    const tooltip = document.getElementById('tooltip') as HTMLElement;
+    expect(within(tooltip).getAllByRole('button').length).toBeGreaterThanOrEqual(2);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {
