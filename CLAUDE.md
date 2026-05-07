@@ -60,7 +60,7 @@ A bug must not cost real money. Layers, in order of "fail-loud" → "cut-the-lin
 - **`/to-prd`** — synthesize current conversation into a PRD.
 - **`/tdd`** — red-green-refactor with vertical slices. Never write all tests first.
 
-When picking up a slice from `PRD.md`'s rollout (slice 0 done, 1–9 remaining), use `/tdd` for the scoring module specifically.
+When picking up a slice from `PRD.md`'s rollout, use `/tdd`. Slice numbers map 1:1 to GitHub issue numbers — `gh issue list` shows what's open and what's closed.
 
 ## Test philosophy
 
