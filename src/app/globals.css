@@ -41,6 +41,9 @@
   --text-3xl: 3.5rem;
   --text-display: 6rem;
 
+  /* container — DESIGN.md §3 page shell */
+  --container-content: 1100px;
+
   /* radius */
   --radius-sm: 6px;
   --radius-md: 10px;
