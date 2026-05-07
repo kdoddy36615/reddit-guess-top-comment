@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { GuessInputSection } from './guess-input-section';
 import { DialogSection, TabsSection, ToastSection, TooltipSection } from './overlay-sections';
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ const SECTIONS = [
   { id: 'tabs', label: 'Tabs' },
   { id: 'tooltip', label: 'Tooltip' },
   { id: 'round-card', label: 'RoundCard' },
+  { id: 'guess-input', label: 'GuessInput' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -478,6 +480,7 @@ export default function DevComponentsPage() {
         <TabsSection />
         <TooltipSection />
         <RoundCardSection />
+        <GuessInputSection />
       </div>
     </main>
   );

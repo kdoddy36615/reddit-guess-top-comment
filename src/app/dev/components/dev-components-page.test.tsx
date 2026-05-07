@@ -25,6 +25,7 @@ describe('/dev/components page', () => {
       '#tabs',
       '#tooltip',
       '#round-card',
+      '#guess-input',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -43,6 +44,7 @@ describe('/dev/components page', () => {
       'tabs',
       'tooltip',
       'round-card',
+      'guess-input',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -161,6 +163,22 @@ describe('/dev/components page', () => {
     expect(bodies.length).toBeGreaterThanOrEqual(1);
     // Multiple titles rendered as headings.
     expect(within(root).getAllByRole('heading').length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('covers GuessInput with default / typing / submitting / error examples', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('guess-input') as HTMLElement;
+    expect(root).not.toBeNull();
+    for (const label of ['default', 'typing', 'submitting', 'error']) {
+      expect(within(root).getAllByText(new RegExp(label, 'i')).length).toBeGreaterThan(0);
+    }
+    const textareas = root.querySelectorAll('textarea');
+    expect(textareas.length).toBe(4);
+    // The submitting example has aria-busy on its root.
+    const busyRoots = root.querySelectorAll('[data-testid="guess-input"][aria-busy="true"]');
+    expect(busyRoots.length).toBe(1);
+    // The error example has helper text.
+    expect(within(root).getAllByTestId('guess-input-error').length).toBe(1);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {
