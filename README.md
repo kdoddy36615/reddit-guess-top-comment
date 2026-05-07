@@ -31,6 +31,12 @@ curl -X POST http://localhost:3000/api/dev/seed
 # returns { roundId, url } — open the URL in a fresh window to play
 ```
 
+**Or ingest the real frozen corpus** (~120–130 rounds via the public Reddit JSON + Gemini gate):
+
+```bash
+pnpm ingest                     # one-shot; resumes via pre-flight skip on re-run
+```
+
 ## Commands
 
 | Command | What it does |
@@ -43,6 +49,7 @@ curl -X POST http://localhost:3000/api/dev/seed
 | `pnpm lint` / `pnpm lint:fix` | Biome |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm db:types` | Regenerate Supabase types |
+| `pnpm ingest` | One-shot Reddit ingest (scrape-mode, frozen corpus) |
 
 `lint` / `typecheck` / `test` / `build` must all stay green.
 
@@ -52,7 +59,9 @@ curl -X POST http://localhost:3000/api/dev/seed
 - ✅ Slice 1: pure scoring module
 - ✅ Slice 2: solo round playable end-to-end (manual seed)
 - ✅ Slice 3: anonymous identity + guest nickname
-- ⏭️ Slice 4: session machinery (next round, skip, freeplay)
-- ⏭️ Slice 5+: ingestion, daily, share cards, SEO, polish
+- ✅ Slice 4: session machinery (next round, skip, freeplay)
+- ✅ Slice 5: Reddit ingest script (scrape-based, frozen corpus)
+- ✅ Slice 6: cron budget circuit breaker + killswitch
+- ⏭️ Slice 7+: daily, share cards, SEO, polish
 
 See open issues on GitHub for the slice queue.

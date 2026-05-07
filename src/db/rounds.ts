@@ -3,11 +3,16 @@ import type { Database } from '@/lib/supabase/database.types';
 
 type Db = SupabaseClient<Database>;
 
+// `difficulty` is enforced as enum-like by a CHECK constraint in the migration,
+// but Supabase's type gen produces a plain `string` for CHECK-constrained
+// columns. Narrow at the wrapper boundary.
+type Difficulty = 'easy' | 'medium' | 'hard';
+
 export type RoundForGuessing = {
   id: string;
   title: string;
   subreddit: string;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: Difficulty;
 };
 
 export type RoundForScoring = RoundForGuessing & {
@@ -35,7 +40,7 @@ export async function getPublicRound(db: Db, id: string): Promise<RoundForGuessi
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  return data;
+  return { ...data, difficulty: data.difficulty as Difficulty };
 }
 
 /** Full round details including the top comment + embedding. Service-role only. */
@@ -53,7 +58,7 @@ export async function getRoundForScoring(db: Db, id: string): Promise<RoundForSc
     id: data.id,
     title: data.title,
     subreddit: data.subreddit,
-    difficulty: data.difficulty,
+    difficulty: data.difficulty as Difficulty,
     topCommentText: data.top_comment_text,
     commentEmbedding: parsePgvector(data.comment_embedding),
     punchlineWord: data.punchline_word,

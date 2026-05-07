@@ -14,6 +14,7 @@
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "ingest": "tsx --env-file=.env.local scripts/ingest.ts",
     "db:types": "supabase gen types typescript --project-id $env:SUPABASE_PROJECT_ID > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
@@ -49,6 +50,7 @@
     "jsdom": "^29.1.1",
     "supabase": "^2.98.2",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.5"
   },

@@ -149,7 +149,7 @@ Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `
 
 ### Schema (7 tables)
 
-1. **`rounds`** — Reddit post + LLM gate output + 768-dim embedding (Gemini `gemini-embedding-001` with `outputDimensionality: 768`) + lifecycle status (`pending_gate | auto_published | rejected | reported | unpublished`). Reddit data and game metadata are denormalized into this single table; we'll split if a round is ever derived from a non-Reddit source.
+1. **`rounds`** — Reddit post + LLM gate output + 768-dim embedding (Gemini `gemini-embedding-001` with `outputDimensionality: 768`) + lifecycle status (`pending_gate | auto_published | rejected | reported | unpublished`) + a `reddit_data` JSONB column that captures the full raw Reddit post object at ingest time (preview, gallery_data, media_metadata, thumbnail, domain, …) so a future image-display slice can render attachments without re-hitting Reddit. Reddit data and game metadata are denormalized into this single table; we'll split if a round is ever derived from a non-Reddit source.
 2. **`players`** — anonymous identity. `nickname`, `cookie_hash`, optional later linkage to `auth.users` via Supabase anonymous auth.
 3. **`game_sessions`** — solo, daily, or room. State machine on `current_round_id` + `current_round_state` (`guessing | revealed | session_complete`). `UNIQUE (mode, room_id)` prevents duplicate daily sessions.
 4. **`session_rounds`** — ordered round sequence per session. Pre-filled for daily/room, appended one-at-a-time for freeplay.
@@ -277,7 +277,7 @@ This is a greenfield repo, so there's no in-codebase prior art yet. The first sc
 - **Subreddit hub pages (`/subreddit/[name]`).** Removed from the plan during grilling. The internal-link graph plus `/archive` cover the same role with less SEO fragmentation. Can come back later if data shows specific subreddit search terms have meaningful volume and we're willing to invest in unique content per page.
 - **Admin/triage UI.** The auto-publish + report-button flow eliminates the manual queue. Add a triage page later only if the gate's accuracy degrades unacceptably.
 - **Manual daily-challenge override UI.** Auto-pick from `auto_published` is MVP. A 10-line admin feature to override the day's 5 picks is a future addition.
-- **Image/video Reddit content.** All chosen subreddits are text-first. `r/funny` and `r/facepalm` were excluded because they need images to make sense.
+- **Image/video Reddit content (deferred, not permanently excluded).** MVP subreddits are text-first; `r/funny` and `r/facepalm` are excluded for now because their comment punchlines depend on the image and we don't yet display it. A future slice will render the attached image on the round page (with OG-safe handling so share cards don't spoil the joke), at which point image-heavy subs become eligible. Until then, the ingest script's `post_hint === 'image'` filter plus the gate's "depends on an image" reject rule remain the guard.
 - **Per-subreddit metadata table.** Subreddit is a string column on `rounds` — no `subreddits` lookup table.
 - **Comment freshness re-pulls.** We snapshot the top comment at ingest time and freeze it. Reddit comment ranks shift but we don't track that.
 - **Retry queue for failed processing.** Failed rows simply stay in `pending_gate` and get retried on the next process cron tick. No exponential backoff, no DLQ.
