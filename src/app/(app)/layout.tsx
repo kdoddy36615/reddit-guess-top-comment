@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react';
-import { AppBar } from '@/components/layout/app-bar';
-import { Footer } from '@/components/layout/footer';
+import { getAvatarMenuState } from '@/lib/auth/avatar-menu-state';
+import { getCurrentAuthStatus, getCurrentPlayer } from '@/lib/auth/current-player';
+import { AppLayoutShell } from './app-layout-shell';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const [authStatus, player] = await Promise.all([getCurrentAuthStatus(), getCurrentPlayer()]);
+  const menuState = getAvatarMenuState({
+    isAnonymous: authStatus?.isAnonymous ?? null,
+    nickname: player?.nickname ?? null,
+  });
   return (
-    <>
-      <AppBar />
-      <main className="flex-1 mx-auto w-full px-4 md:px-6 sm:max-w-[600px] lg:max-w-[880px] xl:max-w-content">
-        {children}
-      </main>
-      <Footer />
-    </>
+    <AppLayoutShell menuState={menuState} nickname={player?.nickname ?? null}>
+      {children}
+    </AppLayoutShell>
   );
 }

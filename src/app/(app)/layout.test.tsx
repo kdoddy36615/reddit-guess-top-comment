@@ -1,13 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import AppLayout from './layout';
+import { AppLayoutShell } from './app-layout-shell';
 
-describe('(app) route group layout', () => {
+describe('(app) route group layout shell', () => {
   it('renders AppBar + main + footer landmarks around its children', () => {
     render(
-      <AppLayout>
+      <AppLayoutShell menuState="anonymous" nickname={null}>
         <p data-testid="page">page body</p>
-      </AppLayout>,
+      </AppLayoutShell>,
     );
     expect(screen.getByRole('banner')).toBeInTheDocument();
     const main = screen.getByRole('main');
@@ -17,18 +17,18 @@ describe('(app) route group layout', () => {
 
   it('main flex-grows so footer sits at the page bottom', () => {
     render(
-      <AppLayout>
+      <AppLayoutShell menuState="anonymous" nickname={null}>
         <p>page</p>
-      </AppLayout>,
+      </AppLayoutShell>,
     );
     expect(screen.getByRole('main').className).toMatch(/flex-1/);
   });
 
   it('main container matches DESIGN.md §3 stepped widths (600 / 880 / 1100px)', () => {
     render(
-      <AppLayout>
+      <AppLayoutShell menuState="anonymous" nickname={null}>
         <p>page</p>
-      </AppLayout>,
+      </AppLayoutShell>,
     );
     const main = screen.getByRole('main');
     // mx-auto + responsive max-w stops + horizontal padding (4 mobile, 6 ≥md).
@@ -40,12 +40,13 @@ describe('(app) route group layout', () => {
     expect(main.className).toMatch(/xl:max-w-content/);
   });
 
-  it('avatar slot is empty until slice 6 ships AvatarMenu', () => {
+  it('mounts the AvatarMenu trigger into the AppBar avatar slot', () => {
     render(
-      <AppLayout>
+      <AppLayoutShell menuState="permanent" nickname="kev">
         <p>page</p>
-      </AppLayout>,
+      </AppLayoutShell>,
     );
-    expect(screen.getByTestId('app-bar-avatar-slot').textContent).toBe('');
+    const slot = screen.getByTestId('app-bar-avatar-slot');
+    expect(within(slot).getByRole('button', { name: /open user menu/i })).toBeInTheDocument();
   });
 });
