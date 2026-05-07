@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { OnboardClient } from './onboard-client';
@@ -27,6 +28,15 @@ export default async function WelcomePage({
         No signup. Your name shows up on your reveal screen and any results you share.
       </p>
       <OnboardClient nextPath={next ?? '/'} />
+      <p className="mt-6 text-sm text-zinc-500">
+        Already saved your scores?{' '}
+        <Link
+          href={`/sign-in?next=${encodeURIComponent(next ?? '/')}`}
+          className="underline hover:text-zinc-700"
+        >
+          Sign in
+        </Link>
+      </p>
     </main>
   );
 }

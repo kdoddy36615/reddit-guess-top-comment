@@ -5,7 +5,7 @@ import { SCORING_CONFIG } from '@/config/scoring';
 import { listRecentGuessesForRound } from '@/db/guesses';
 import { getPublicRound, listMoreFromSubreddit } from '@/db/rounds';
 import { findOrCreateSoloSession } from '@/db/sessions';
-import { getCurrentPlayer } from '@/lib/auth/current-player';
+import { getCurrentAuthStatus, getCurrentPlayer } from '@/lib/auth/current-player';
 import { buildQuizJsonLd } from '@/lib/seo/quiz-jsonld';
 import { getSiteUrl } from '@/lib/site-url';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -46,6 +46,7 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
   if (!player) {
     redirect(`/welcome?next=${encodeURIComponent(`/round/${id}`)}`);
   }
+  const authStatus = await getCurrentAuthStatus();
 
   const db = createServiceRoleClient();
   const round = await getPublicRound(db, id);
@@ -97,7 +98,11 @@ export default async function RoundPage({ params }: { params: Promise<{ id: stri
       </header>
       <h1 className="mt-2 text-3xl font-semibold leading-tight">{round.title}</h1>
       <p className="mt-4 text-zinc-600">Guess what the top comment said. One sentence is enough.</p>
-      <GuessClient roundId={round.id} sessionId={session.id} />
+      <GuessClient
+        roundId={round.id}
+        sessionId={session.id}
+        isAnonymous={authStatus?.isAnonymous ?? false}
+      />
 
       {recentGuesses.length > 0 && (
         <aside aria-labelledby="recent-guesses-heading" className="mt-10 border-t pt-6">

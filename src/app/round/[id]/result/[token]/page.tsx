@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { findGuessByShareToken } from '@/db/guesses';
 import { getPublicRound } from '@/db/rounds';
 import { findOrCreateSoloSession } from '@/db/sessions';
-import { getCurrentPlayer } from '@/lib/auth/current-player';
+import { getCurrentAuthStatus, getCurrentPlayer } from '@/lib/auth/current-player';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { reactionFor } from '@/scoring/reaction';
 import { GuessClient } from '../../guess-client';
@@ -47,6 +47,7 @@ export default async function ResultPage({
   if (!player) {
     redirect(`/welcome?next=${encodeURIComponent(`/round/${id}/result/${token}`)}`);
   }
+  const authStatus = await getCurrentAuthStatus();
 
   const db = createServiceRoleClient();
   const round = await getPublicRound(db, id);
@@ -82,7 +83,11 @@ export default async function ResultPage({
 
       <h1 className="mt-2 text-3xl font-semibold leading-tight">{round.title}</h1>
       <p className="mt-4 text-zinc-600">Guess what the top comment said. One sentence is enough.</p>
-      <GuessClient roundId={round.id} sessionId={session.id} />
+      <GuessClient
+        roundId={round.id}
+        sessionId={session.id}
+        isAnonymous={authStatus?.isAnonymous ?? false}
+      />
     </main>
   );
 }

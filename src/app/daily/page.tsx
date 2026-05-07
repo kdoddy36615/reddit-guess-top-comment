@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { GuessClient } from '@/app/round/[id]/guess-client';
 import { getPublicRound } from '@/db/rounds';
 import { findOrCreateDailySession, getPlayerDailyProgress } from '@/db/sessions';
-import { getCurrentPlayer } from '@/lib/auth/current-player';
+import { getCurrentAuthStatus, getCurrentPlayer } from '@/lib/auth/current-player';
 import { InsufficientRoundsError } from '@/lib/daily';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
@@ -21,6 +21,7 @@ export default async function DailyPage() {
   if (!player) {
     redirect(`/welcome?next=${encodeURIComponent('/daily')}`);
   }
+  const authStatus = await getCurrentAuthStatus();
 
   const db = createServiceRoleClient();
   let session: { id: string; roomId: string };
@@ -105,6 +106,7 @@ export default async function DailyPage() {
         sessionId={session.id}
         variant="daily"
         advanceHref="/daily"
+        isAnonymous={authStatus?.isAnonymous ?? false}
         finalSummary={
           roundNumber === progress.totalRounds
             ? { totalRounds: progress.totalRounds, priorTotalScore: progress.totalScore }

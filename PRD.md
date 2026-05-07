@@ -164,7 +164,9 @@ Initial subreddit allowlist (hardcoded in `src/config/subreddits.ts`): `tifu`, `
 
 Players pick a guest nickname on first visit. We call `supabase.auth.signInAnonymously()`, which creates an `auth.users` row with no email/password and sets a JWT cookie. We insert a `players` row with the nickname and `auth_user_id`. Players experience no signup flow.
 
-When players later choose to "save my scores," `supabase.auth.linkIdentity({ provider: 'email', email, password })` upgrades the same `auth.users` row in place — all guess history follows the user with zero migration. This is the chosen mechanism over a hand-rolled signed cookie because the upgrade path is built-in.
+When players later choose to "save my scores," the same `auth.users` row is upgraded in place — all guess history follows the user with zero migration. This is the chosen mechanism over a hand-rolled signed cookie because the upgrade path is built-in.
+
+**Implementation note (slice 13):** the actual SDK call is `supabase.auth.updateUser({ email, password })`, not `linkIdentity()`. `linkIdentity()` only accepts OAuth/OIDC credentials in `@supabase/auth-js`; `updateUser()` is the documented Supabase path for converting an anonymous user with email + password. Future OAuth-based upgrades (Google, GitHub) will use `linkIdentity()` on the same `auth.users` row, preserving `player_id`.
 
 ### Cost controls — three independent layers
 

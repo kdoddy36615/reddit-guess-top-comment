@@ -34,6 +34,9 @@ export default async function Home() {
         <Link href="/archive" className="hover:underline">
           Browse all rounds
         </Link>
+        <Link href="/sign-in" className="hover:underline">
+          Sign in
+        </Link>
       </nav>
     </main>
   );

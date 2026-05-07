@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { SaveScoresCta } from '@/components/save-scores-cta';
 import type { ScoreBreakdown } from '@/scoring';
 import type { ReactionBand } from '@/scoring/reaction';
 
@@ -27,6 +28,7 @@ export function GuessClient({
   variant = 'solo',
   advanceHref,
   finalSummary,
+  isAnonymous = false,
 }: {
   roundId: string;
   sessionId: string;
@@ -35,6 +37,8 @@ export function GuessClient({
   // When set, this round is the final one in the session. After submission,
   // the "Next round" button is replaced with a completion summary panel.
   finalSummary?: { totalRounds: number; priorTotalScore: number };
+  // When true, the post-reveal screen offers a "Save my scores" upgrade CTA.
+  isAnonymous?: boolean;
 }) {
   const router = useRouter();
   const [guess, setGuess] = useState('');
@@ -169,6 +173,7 @@ export function GuessClient({
             {shareCopied ? 'Link copied!' : 'Share result'}
           </button>
         )}
+        <SaveScoresCta isAnonymous={isAnonymous} />
         {finalSummary ? (
           <div
             className="rounded-lg border border-zinc-200 bg-white p-4 text-center"
