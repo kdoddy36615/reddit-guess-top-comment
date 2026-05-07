@@ -8,13 +8,31 @@ describe('/dev/components page', () => {
 
     // Top nav lets reviewers jump to each section.
     const nav = screen.getByRole('navigation', { name: /sections/i });
-    for (const anchor of ['#button', '#input', '#textarea', '#card', '#badge']) {
+    for (const anchor of [
+      '#button',
+      '#input',
+      '#textarea',
+      '#card',
+      '#badge',
+      '#avatar',
+      '#skeleton',
+      '#progress',
+    ]) {
       expect(
         within(nav).getByRole('link', { name: new RegExp(anchor.slice(1), 'i') }),
       ).toHaveAttribute('href', anchor);
     }
 
-    for (const id of ['button', 'input', 'textarea', 'card', 'badge']) {
+    for (const id of [
+      'button',
+      'input',
+      'textarea',
+      'card',
+      'badge',
+      'avatar',
+      'skeleton',
+      'progress',
+    ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
     }
@@ -69,5 +87,47 @@ describe('/dev/components page', () => {
     for (const variant of ['default', 'accent', 'gold', 'success', 'danger']) {
       expect(within(root).getAllByText(new RegExp(variant, 'i')).length).toBeGreaterThan(0);
     }
+  });
+
+  it('covers Avatar: image, initial fallback, you variant, slot palette, sizes', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('avatar') as HTMLElement;
+    expect(root).not.toBeNull();
+    // At least one avatar of each size renders.
+    for (const size of ['sm', 'md', 'lg']) {
+      expect(within(root).getAllByText(new RegExp(`\\b${size}\\b`)).length).toBeGreaterThan(0);
+    }
+    // 'you' label and at least one image fallback row.
+    expect(within(root).getAllByText(/you/i).length).toBeGreaterThan(0);
+    expect(within(root).getAllByText(/initial/i).length).toBeGreaterThan(0);
+    expect(within(root).getAllByText(/image/i).length).toBeGreaterThan(0);
+    // Slot palette rendered (multiple slots side-by-side).
+    expect(within(root).getAllByText(/slot/i).length).toBeGreaterThan(0);
+  });
+
+  it('covers Skeleton with at least one rendered placeholder', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('skeleton') as HTMLElement;
+    expect(root).not.toBeNull();
+    const skeletons = root.querySelectorAll('[aria-hidden="true"].animate-pulse');
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
+
+  it('covers Progress (round pips): full pending → partial → complete examples', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('progress') as HTMLElement;
+    expect(root).not.toBeNull();
+    const bars = root.querySelectorAll('[role="progressbar"]');
+    expect(bars.length).toBeGreaterThanOrEqual(3);
+    // At least one fully-pending and one partial example exist.
+    const allowedStates = new Set(['done', 'now', 'pending']);
+    const seenStates = new Set<string>();
+    for (const bar of Array.from(bars)) {
+      for (const pip of Array.from(bar.querySelectorAll('[data-state]'))) {
+        const s = pip.getAttribute('data-state') ?? '';
+        if (allowedStates.has(s)) seenStates.add(s);
+      }
+    }
+    expect(seenStates).toEqual(new Set(['done', 'now', 'pending']));
   });
 });
