@@ -49,5 +49,9 @@ next-env.d.ts
 .claude/settings.local.json
 .claude/.session/
 
+# auto-slice loop — local-only killswitch sentinel and run log
+scripts/.auto-slice-stop
+scripts/auto-slice.log
+
 # Supabase auto-generated types (regenerate via `supabase gen types`)
 src/lib/supabase/database.types.ts
