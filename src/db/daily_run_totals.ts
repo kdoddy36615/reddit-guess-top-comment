@@ -179,3 +179,91 @@ export async function selectAllTimeBoard(db: Db, args: { limit: number }): Promi
   if (error) throw error;
   return aggregateByPlayer(data ?? [], args.limit);
 }
+
+export type RankedAggregateRow = AggregateRow & { rank: number };
+
+export type AggregatedBoardWithWindow = {
+  /** Top-N ranked rows. */
+  topRows: RankedAggregateRow[];
+  /** Window of rows around the focused player when they fall outside the top-N. */
+  youWindow: RankedAggregateRow[] | null;
+  /** 1-based rank of the focused player on the full ranked board, or null. */
+  youRank: number | null;
+  /** Distinct player count across the timeframe. */
+  totalPlayers: number;
+};
+
+/**
+ * Aggregate -> rank -> slice top + window around focused player.
+ *
+ * Used by both the week and all-time board readers — the only difference is
+ * which rows the caller pulls from `daily_run_totals` (week-windowed by
+ * `completed_at` vs full table). Aggregating + windowing in JS is fine while
+ * the cohort is in the low thousands; revisit if scale demands SQL-side ranks.
+ */
+function aggregateRankWindow(
+  rows: { player_id: string; total_score: number }[],
+  args: { playerId: string | null; topLimit: number; neighbors: number },
+): AggregatedBoardWithWindow {
+  const aggregated = aggregateByPlayer(rows, Number.MAX_SAFE_INTEGER);
+  const ranked: RankedAggregateRow[] = aggregated.map((r, i) => ({ ...r, rank: i + 1 }));
+  const topRows = ranked.slice(0, args.topLimit);
+
+  let youRank: number | null = null;
+  let youWindow: RankedAggregateRow[] | null = null;
+
+  if (args.playerId) {
+    const idx = ranked.findIndex((r) => r.playerId === args.playerId);
+    if (idx !== -1) {
+      youRank = idx + 1;
+      const inTop = idx < topRows.length;
+      if (!inTop) {
+        const start = Math.max(0, idx - args.neighbors);
+        const end = Math.min(ranked.length, idx + args.neighbors + 1);
+        youWindow = ranked.slice(start, end);
+      }
+    }
+  }
+
+  return { topRows, youWindow, youRank, totalPlayers: ranked.length };
+}
+
+/**
+ * Week board: rolling 7-day window aggregate per player + top-N + windowed
+ * "you" view. Half-open `[weekStart, weekEnd)` on `completed_at`.
+ */
+export async function selectWeekBoardForPlayer(
+  db: Db,
+  args: {
+    weekStart: string;
+    weekEnd: string;
+    playerId: string | null;
+    topLimit: number;
+    neighbors: number;
+  },
+): Promise<AggregatedBoardWithWindow> {
+  const { data, error } = await db
+    .from('daily_run_totals')
+    .select('player_id, total_score')
+    .gte('completed_at', args.weekStart)
+    .lt('completed_at', args.weekEnd);
+  if (error) throw error;
+  return aggregateRankWindow(data ?? [], {
+    playerId: args.playerId,
+    topLimit: args.topLimit,
+    neighbors: args.neighbors,
+  });
+}
+
+/**
+ * All-time board: aggregate per player across every recorded run + top-N +
+ * windowed "you" view. Single full-table scan; the cohort stays small.
+ */
+export async function selectAllTimeBoardForPlayer(
+  db: Db,
+  args: { playerId: string | null; topLimit: number; neighbors: number },
+): Promise<AggregatedBoardWithWindow> {
+  const { data, error } = await db.from('daily_run_totals').select('player_id, total_score');
+  if (error) throw error;
+  return aggregateRankWindow(data ?? [], args);
+}

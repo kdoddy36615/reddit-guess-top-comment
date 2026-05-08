@@ -2,7 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   selectAllTimeBoard,
+  selectAllTimeBoardForPlayer,
   selectTopBoard,
+  selectWeekBoardForPlayer,
   selectWeekRollup,
   selectWindowedBoardForPlayer,
   upsertDailyRunTotal,
@@ -330,6 +332,122 @@ describe('selectWeekRollup', () => {
     });
     expect(week).toHaveLength(2);
     expect(week.map((r) => r.playerId)).toEqual([PLAYER_C, PLAYER_B]);
+  });
+});
+
+describe('selectWeekBoardForPlayer', () => {
+  const weekStart = '2026-05-01T00:00:00Z';
+  const weekEnd = '2026-05-08T00:00:00Z';
+
+  it('returns ranked top rows + total players + youRank when the player is in the top', async () => {
+    const { db } = fakeDb([
+      row(PLAYER_A, 'daily-2026-05-02', 100, '2026-05-02T10:00:00Z'),
+      row(PLAYER_A, 'daily-2026-05-03', 200, '2026-05-03T10:00:00Z'),
+      row(PLAYER_B, 'daily-2026-05-02', 250, '2026-05-02T11:00:00Z'),
+      row(PLAYER_B, 'daily-2026-05-04', 250, '2026-05-04T11:00:00Z'),
+      row(PLAYER_C, 'daily-2026-05-05', 400, '2026-05-05T09:00:00Z'),
+      // Outside the window — must be excluded.
+      row(PLAYER_A, 'daily-2026-04-30', 999, '2026-04-30T09:00:00Z'),
+    ]);
+    const result = await selectWeekBoardForPlayer(db, {
+      weekStart,
+      weekEnd,
+      playerId: PLAYER_B,
+      topLimit: 20,
+      neighbors: 2,
+    });
+    expect(
+      result.topRows.map((r) => ({ id: r.playerId, score: r.totalScore, rank: r.rank })),
+    ).toEqual([
+      { id: PLAYER_B, score: 500, rank: 1 },
+      { id: PLAYER_C, score: 400, rank: 2 },
+      { id: PLAYER_A, score: 300, rank: 3 },
+    ]);
+    expect(result.totalPlayers).toBe(3);
+    expect(result.youRank).toBe(1);
+    // Player is in the top, no separate window required.
+    expect(result.youWindow).toBeNull();
+  });
+
+  it('returns a youWindow when the player is below the top-N cutoff', async () => {
+    const rows: StoredRow[] = [];
+    for (let i = 0; i < 30; i++) {
+      const playerId = `player-${i.toString().padStart(3, '0')}`;
+      rows.push(row(playerId, 'daily-2026-05-02', 1000 - i, '2026-05-02T10:00:00Z'));
+    }
+    const { db } = fakeDb(rows);
+    const result = await selectWeekBoardForPlayer(db, {
+      weekStart,
+      weekEnd,
+      playerId: 'player-024',
+      topLimit: 20,
+      neighbors: 2,
+    });
+    expect(result.topRows).toHaveLength(20);
+    expect(result.youRank).toBe(25);
+    expect(result.youWindow?.map((r) => ({ id: r.playerId, rank: r.rank }))).toEqual([
+      { id: 'player-022', rank: 23 },
+      { id: 'player-023', rank: 24 },
+      { id: 'player-024', rank: 25 },
+      { id: 'player-025', rank: 26 },
+      { id: 'player-026', rank: 27 },
+    ]);
+  });
+
+  it('returns youWindow=null and youRank=null when no playerId is supplied', async () => {
+    const { db } = fakeDb([row(PLAYER_A, 'daily-2026-05-02', 100, '2026-05-02T10:00:00Z')]);
+    const result = await selectWeekBoardForPlayer(db, {
+      weekStart,
+      weekEnd,
+      playerId: null,
+      topLimit: 20,
+      neighbors: 2,
+    });
+    expect(result.youWindow).toBeNull();
+    expect(result.youRank).toBeNull();
+    expect(result.totalPlayers).toBe(1);
+  });
+
+  it('returns youWindow=null and youRank=null when the player has no run in the window', async () => {
+    const { db } = fakeDb([row(PLAYER_A, 'daily-2026-05-02', 100, '2026-05-02T10:00:00Z')]);
+    const result = await selectWeekBoardForPlayer(db, {
+      weekStart,
+      weekEnd,
+      playerId: PLAYER_B,
+      topLimit: 20,
+      neighbors: 2,
+    });
+    expect(result.youRank).toBeNull();
+    expect(result.youWindow).toBeNull();
+  });
+});
+
+describe('selectAllTimeBoardForPlayer', () => {
+  it('aggregates across every recorded daily run and pins a youWindow when off-screen', async () => {
+    const rows: StoredRow[] = [];
+    for (let i = 0; i < 30; i++) {
+      const playerId = `player-${i.toString().padStart(3, '0')}`;
+      // Two runs each, summed.
+      rows.push(row(playerId, 'daily-2026-04-01', 500 - i, '2026-04-01T10:00:00Z'));
+      rows.push(row(playerId, 'daily-2026-04-02', 500 - i, '2026-04-02T10:00:00Z'));
+    }
+    const { db } = fakeDb(rows);
+    const result = await selectAllTimeBoardForPlayer(db, {
+      playerId: 'player-024',
+      topLimit: 20,
+      neighbors: 2,
+    });
+    expect(result.topRows[0]).toMatchObject({ playerId: 'player-000', totalScore: 1000, rank: 1 });
+    expect(result.topRows).toHaveLength(20);
+    expect(result.totalPlayers).toBe(30);
+    expect(result.youRank).toBe(25);
+    expect(result.youWindow?.map((r) => r.playerId)).toEqual([
+      'player-022',
+      'player-023',
+      'player-024',
+      'player-025',
+      'player-026',
+    ]);
   });
 });
 

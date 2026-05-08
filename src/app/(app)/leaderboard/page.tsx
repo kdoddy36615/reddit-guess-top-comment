@@ -1,35 +1,51 @@
 import type { Metadata } from 'next';
 import {
+  type AggregatedBoardWithWindow,
   findDailyRunTotal,
+  selectAllTimeBoardForPlayer,
   selectTopBoard,
+  selectWeekBoardForPlayer,
   selectWindowedBoardForPlayer,
 } from '@/db/daily_run_totals';
 import { getPlayerByAuthId } from '@/db/players';
 import { dailyRoomId } from '@/lib/daily';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { createSsrClient } from '@/lib/supabase/ssr';
-import { type BoardRow, LeaderboardClient } from './leaderboard-client';
+import {
+  type BoardRow,
+  LeaderboardClient,
+  type Timeframe,
+  type TimeframeBoard,
+} from './leaderboard-client';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Leaderboard · Reddit Guess Top Comment',
-  description: "Today's daily-run leaderboard.",
+  description: 'Today, this week, and all-time daily-run leaderboards.',
 };
 
 const TOP_LIMIT = 20;
 const WINDOW_NEIGHBORS = 2;
+const WEEK_DAYS = 7;
+const ALLOWED_TABS: readonly Timeframe[] = ['today', 'week', 'all-time'] as const;
 
 /**
  * Server-rendered leaderboard.
  *
- * Today tab is the only live timeframe in this slice — week + all-time tabs
- * render disabled placeholders. The "you" row is highlighted only when the
- * viewer has a permanent identity (anonymous-auth users see the
- * "sign in to compete" CTA instead, since their cohort would never persist
- * past a sign-out).
+ * All three timeframes are pre-computed server-side and handed to the client
+ * so tab switches are instant + URL-syncable. The "you" row only highlights
+ * for permanently-identified viewers — anonymous-auth users see the
+ * "sign in to compete" CTA, since their cohort wouldn't survive a sign-out.
+ *
+ * The `?tab=` query param picks the initially-rendered timeframe; the client
+ * mirrors it back to the URL on tab change for shareability.
  */
-export default async function LeaderboardPage() {
+export default async function LeaderboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const ssr = await createSsrClient();
   const {
     data: { user },
@@ -37,73 +53,150 @@ export default async function LeaderboardPage() {
   const isAnonymous = !user || user.is_anonymous === true;
 
   const player = user ? await getPlayerByAuthId(ssr, user.id) : null;
+  const focusedPlayerId = !isAnonymous && player ? player.id : null;
 
   const db = createServiceRoleClient();
   const today = new Date();
   const roomId = dailyRoomId(today);
   const dateLabel = roomId.replace(/^daily-/, '');
 
+  const weekEnd = today.toISOString();
+  const weekStart = new Date(today.getTime() - WEEK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const [todayBoard, weekBoard, allTimeBoard] = await Promise.all([
+    buildTodayBoard(db, { roomId, focusedPlayerId }),
+    selectWeekBoardForPlayer(db, {
+      weekStart,
+      weekEnd,
+      playerId: focusedPlayerId,
+      topLimit: TOP_LIMIT,
+      neighbors: WINDOW_NEIGHBORS,
+    }),
+    selectAllTimeBoardForPlayer(db, {
+      playerId: focusedPlayerId,
+      topLimit: TOP_LIMIT,
+      neighbors: WINDOW_NEIGHBORS,
+    }),
+  ]);
+
+  // One round-trip for all distinct player IDs across all 3 boards.
+  const allPlayerIds = new Set<string>();
+  for (const r of todayBoard.topRows) allPlayerIds.add(r.playerId);
+  for (const r of todayBoard.youWindow ?? []) allPlayerIds.add(r.playerId);
+  for (const r of weekBoard.topRows) allPlayerIds.add(r.playerId);
+  for (const r of weekBoard.youWindow ?? []) allPlayerIds.add(r.playerId);
+  for (const r of allTimeBoard.topRows) allPlayerIds.add(r.playerId);
+  for (const r of allTimeBoard.youWindow ?? []) allPlayerIds.add(r.playerId);
+  const namesById = await fetchNicknames(db, [...allPlayerIds]);
+
+  const boards: Record<Timeframe, TimeframeBoard> = {
+    today: {
+      topRows: todayBoard.topRows.map((r) => withName(r, namesById)),
+      youWindow: todayBoard.youWindow
+        ? todayBoard.youWindow.map((r) => withName(r, namesById))
+        : null,
+      totalPlayers: todayBoard.totalPlayers,
+    },
+    week: aggregatedToTimeframeBoard(weekBoard, namesById),
+    'all-time': aggregatedToTimeframeBoard(allTimeBoard, namesById),
+  };
+
+  const params = await searchParams;
+  const requested = params.tab;
+  const initialTab: Timeframe = ALLOWED_TABS.includes(requested as Timeframe)
+    ? (requested as Timeframe)
+    : 'today';
+
+  return (
+    <LeaderboardClient
+      dateLabel={dateLabel}
+      initialNow={today.toISOString()}
+      currentPlayerId={focusedPlayerId}
+      isAnonymous={isAnonymous}
+      boards={boards}
+      initialTab={initialTab}
+    />
+  );
+}
+
+type IntermediateRow = { playerId: string; rank: number; score: number };
+type IntermediateBoard = {
+  topRows: IntermediateRow[];
+  youWindow: IntermediateRow[] | null;
+  totalPlayers: number;
+};
+
+async function buildTodayBoard(
+  db: ReturnType<typeof createServiceRoleClient>,
+  args: { roomId: string; focusedPlayerId: string | null },
+): Promise<IntermediateBoard> {
   const [topRaw, totalCountResp] = await Promise.all([
-    selectTopBoard(db, { dailyRoomId: roomId, limit: TOP_LIMIT }),
+    selectTopBoard(db, { dailyRoomId: args.roomId, limit: TOP_LIMIT }),
     db
       .from('daily_run_totals')
       .select('player_id', { count: 'exact', head: true })
-      .eq('daily_room_id', roomId),
+      .eq('daily_room_id', args.roomId),
   ]);
   if (totalCountResp.error) throw totalCountResp.error;
   const totalPlayers = totalCountResp.count ?? 0;
 
-  // The viewer's row only counts as "you" if they have a permanent identity
-  // AND a finalized run today. Anonymous-auth users with a run still see
-  // their score in the board (matched by playerId), but no gold variant —
-  // anchoring the gold to a permanent identity keeps the social signal honest.
-  let youWindow: BoardRow[] | null = null;
-  if (player && !isAnonymous) {
+  const topRows: IntermediateRow[] = topRaw.map((r, i) => ({
+    playerId: r.playerId,
+    rank: i + 1,
+    score: r.totalScore,
+  }));
+
+  let youWindow: IntermediateRow[] | null = null;
+  if (args.focusedPlayerId) {
     const youRun = await findDailyRunTotal(db, {
-      playerId: player.id,
-      dailyRoomId: roomId,
+      playerId: args.focusedPlayerId,
+      dailyRoomId: args.roomId,
     });
-    const inTop = topRaw.some((r) => r.playerId === player.id);
+    const inTop = topRaw.some((r) => r.playerId === args.focusedPlayerId);
     if (youRun && !inTop) {
       const windowed = await selectWindowedBoardForPlayer(db, {
-        dailyRoomId: roomId,
-        playerId: player.id,
+        dailyRoomId: args.roomId,
+        playerId: args.focusedPlayerId,
         before: WINDOW_NEIGHBORS,
         after: WINDOW_NEIGHBORS,
       });
       if (windowed) {
-        const windowIds = windowed.rows.map((r) => r.playerId);
-        const namesById = await fetchNicknames(db, windowIds);
         youWindow = windowed.rows.map((r) => ({
           playerId: r.playerId,
           rank: r.rank,
-          name: namesById.get(r.playerId) ?? '—',
           score: r.totalScore,
         }));
       }
     }
   }
 
-  const topPlayerIds = topRaw.map((r) => r.playerId);
-  const namesById = await fetchNicknames(db, topPlayerIds);
-  const topRows: BoardRow[] = topRaw.map((r, i) => ({
-    playerId: r.playerId,
-    rank: i + 1,
-    name: namesById.get(r.playerId) ?? '—',
-    score: r.totalScore,
-  }));
+  return { topRows, youWindow, totalPlayers };
+}
 
-  return (
-    <LeaderboardClient
-      dateLabel={dateLabel}
-      totalPlayers={totalPlayers}
-      topRows={topRows}
-      youWindow={youWindow}
-      currentPlayerId={!isAnonymous ? (player?.id ?? null) : null}
-      isAnonymous={isAnonymous}
-      initialNow={today.toISOString()}
-    />
-  );
+function aggregatedToTimeframeBoard(
+  board: AggregatedBoardWithWindow,
+  namesById: Map<string, string>,
+): TimeframeBoard {
+  return {
+    topRows: board.topRows.map((r) =>
+      withName({ playerId: r.playerId, rank: r.rank, score: r.totalScore }, namesById),
+    ),
+    youWindow: board.youWindow
+      ? board.youWindow.map((r) =>
+          withName({ playerId: r.playerId, rank: r.rank, score: r.totalScore }, namesById),
+        )
+      : null,
+    totalPlayers: board.totalPlayers,
+  };
+}
+
+function withName(row: IntermediateRow, namesById: Map<string, string>): BoardRow {
+  return {
+    playerId: row.playerId,
+    rank: row.rank,
+    score: row.score,
+    name: namesById.get(row.playerId) ?? '—',
+  };
 }
 
 async function fetchNicknames(

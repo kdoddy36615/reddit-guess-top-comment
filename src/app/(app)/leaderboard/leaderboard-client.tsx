@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import { LeaderboardRow } from '@/components/game/leaderboard-row';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatResetsIn } from '@/lib/format/resets-in';
+
+export type Timeframe = 'today' | 'week' | 'all-time';
 
 export type BoardRow = {
   playerId: string;
@@ -13,19 +16,23 @@ export type BoardRow = {
   score: number;
 };
 
-export interface LeaderboardClientProps {
-  /** ISO date label like `2026-05-08`. */
-  dateLabel: string;
-  /** Total number of players who have a row on today's board. */
-  totalPlayers: number;
-  /** Top-N rows (ranked desc, ties by `completed_at` asc). */
+export type TimeframeBoard = {
+  /** Top-N rows (already ranked, ties broken upstream). */
   topRows: BoardRow[];
   /**
-   * The player's surrounding window when they are off-screen (rank > top-N
-   * cutoff). `null` when the player is on-screen, has no run yet, or is
-   * anonymous.
+   * Surrounding window when the viewer is off-screen for this timeframe.
+   * `null` when the viewer is on-screen, has no run, or is anonymous.
    */
   youWindow: BoardRow[] | null;
+  /** Distinct player count contributing to this timeframe's board. */
+  totalPlayers: number;
+};
+
+export interface LeaderboardClientProps {
+  /** ISO date label like `2026-05-08`. Used in the today header subtitle. */
+  dateLabel: string;
+  /** Wall-clock time used to seed the today resets-in countdown. */
+  initialNow: string;
   /** The current viewer's `players.id`, or `null` if not signed in. */
   currentPlayerId: string | null;
   /**
@@ -33,15 +40,23 @@ export interface LeaderboardClientProps {
    * without a permanent identity). Drives the "sign in to compete" CTA.
    */
   isAnonymous: boolean;
-  /** Wall-clock time used to seed the resets-in countdown on first render. */
-  initialNow: string;
+  /** Pre-computed board data for each timeframe. */
+  boards: Record<Timeframe, TimeframeBoard>;
+  /** Initial selected tab — chosen server-side from `?tab=`. */
+  initialTab: Timeframe;
 }
 
-const TABS = [
-  { value: 'today', label: 'today', disabled: false },
-  { value: 'week', label: 'week', disabled: true },
-  { value: 'all-time', label: 'all-time', disabled: true },
-] as const;
+const TABS: { value: Timeframe; label: string }[] = [
+  { value: 'today', label: 'today' },
+  { value: 'week', label: 'week' },
+  { value: 'all-time', label: 'all-time' },
+];
+
+const HEADINGS: Record<Timeframe, string> = {
+  today: "today's board",
+  week: 'this week',
+  'all-time': 'all-time',
+};
 
 function ResetsInCountdown({ initialNow }: { initialNow: string }) {
   const [label, setLabel] = useState(() => formatResetsIn(new Date(initialNow)));
@@ -62,52 +77,69 @@ function ResetsInCountdown({ initialNow }: { initialNow: string }) {
 
 export function LeaderboardClient({
   dateLabel,
-  totalPlayers,
-  topRows,
-  youWindow,
+  initialNow,
   currentPlayerId,
   isAnonymous,
-  initialNow,
+  boards,
+  initialTab,
 }: LeaderboardClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [active, setActive] = useState<Timeframe>(initialTab);
+
+  const onTabChange = useCallback(
+    (next: string) => {
+      const tab = next as Timeframe;
+      setActive(tab);
+      // Default tab stays out of the URL so canonical /leaderboard remains clean.
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      if (tab === 'today') {
+        params.delete('tab');
+      } else {
+        params.set('tab', tab);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const board = boards[active];
+
   return (
     <section className="space-y-4 py-6" data-testid="leaderboard">
       <header className="space-y-2">
         <div className="flex items-baseline justify-between gap-3">
-          <h1 className="font-display text-3xl font-semibold text-text">today's board</h1>
-          <ResetsInCountdown initialNow={initialNow} />
+          <h1 className="font-display text-3xl font-semibold text-text">{HEADINGS[active]}</h1>
+          {active === 'today' ? <ResetsInCountdown initialNow={initialNow} /> : null}
         </div>
         <p className="font-mono text-xs text-text-faint">
-          {dateLabel} · {totalPlayers.toLocaleString()} player{totalPlayers === 1 ? '' : 's'}
+          {active === 'today' ? `${dateLabel} · ` : ''}
+          {board.totalPlayers.toLocaleString()} player{board.totalPlayers === 1 ? '' : 's'}
         </p>
       </header>
 
-      <Tabs defaultValue="today">
+      <Tabs value={active} onValueChange={onTabChange}>
         <TabsList aria-label="Leaderboard timeframe">
           {TABS.map((t) => (
-            <TabsTrigger
-              key={t.value}
-              value={t.value}
-              disabled={t.disabled}
-              aria-disabled={t.disabled || undefined}
-              data-testid={`leaderboard-tab-${t.value}`}
-            >
+            <TabsTrigger key={t.value} value={t.value} data-testid={`leaderboard-tab-${t.value}`}>
               {t.label}
-              {t.disabled ? <span className="sr-only"> (coming soon)</span> : null}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
 
       <div className="space-y-2" data-testid="leaderboard-list">
-        {topRows.length === 0 ? (
+        {board.topRows.length === 0 ? (
           <p
             className="rounded-md bg-surface-2 px-4 py-6 text-center font-mono text-sm text-text-muted"
             data-testid="leaderboard-empty"
           >
-            no runs yet today — be the first.
+            no runs yet — be the first.
           </p>
         ) : (
-          topRows.map((row, i) => (
+          board.topRows.map((row, i) => (
             <LeaderboardRow
               key={row.playerId}
               rank={row.rank}
@@ -120,14 +152,14 @@ export function LeaderboardClient({
           ))
         )}
 
-        {youWindow ? (
+        {board.youWindow ? (
           <>
             <hr
               aria-label="off-screen window"
               data-testid="leaderboard-window-divider"
               className="my-2 border-0 border-border-strong border-t border-dashed"
             />
-            {youWindow.map((row, i) => (
+            {board.youWindow.map((row, i) => (
               <LeaderboardRow
                 key={`window-${row.playerId}`}
                 rank={row.rank}
