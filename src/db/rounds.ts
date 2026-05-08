@@ -43,6 +43,53 @@ export async function getPublicRound(db: Db, id: string): Promise<RoundForGuessi
   return { ...data, difficulty: data.difficulty as Difficulty };
 }
 
+export type RoundForPlay = {
+  id: string;
+  title: string;
+  subreddit: string;
+  difficulty: Difficulty;
+  postScore: number;
+  /** Unix-seconds timestamp from `reddit_data.created_utc`, or null when not captured. */
+  createdUtcSeconds: number | null;
+  /** `reddit_data.selftext`, or null when the post is link-only or pre-`reddit_data` ingest. */
+  body: string | null;
+};
+
+/**
+ * Public-facing round info enriched with the fields RoundCard needs (post score
+ * and creation time for upvotes / age, plus selftext for body). Pulls from the
+ * `reddit_data` JSONB column, which is null for rounds ingested before that
+ * migration — those callers see `createdUtcSeconds=null` and `body=null`.
+ */
+export async function getRoundForPlay(db: Db, id: string): Promise<RoundForPlay | null> {
+  const { data, error } = await db
+    .from('rounds')
+    .select('id, title, subreddit, difficulty, post_score, reddit_data')
+    .eq('id', id)
+    .eq('status', 'auto_published')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const reddit = (data.reddit_data ?? null) as { created_utc?: unknown; selftext?: unknown } | null;
+  const createdUtcRaw = reddit?.created_utc;
+  const createdUtcSeconds =
+    typeof createdUtcRaw === 'number' && Number.isFinite(createdUtcRaw) ? createdUtcRaw : null;
+  const selftextRaw = reddit?.selftext;
+  const body =
+    typeof selftextRaw === 'string' && selftextRaw.trim().length > 0 ? selftextRaw : null;
+
+  return {
+    id: data.id,
+    title: data.title,
+    subreddit: data.subreddit,
+    difficulty: data.difficulty as Difficulty,
+    postScore: data.post_score,
+    createdUtcSeconds,
+    body,
+  };
+}
+
 /** Full round details including the top comment + embedding. Service-role only. */
 export async function getRoundForScoring(db: Db, id: string): Promise<RoundForScoring | null> {
   const { data, error } = await db

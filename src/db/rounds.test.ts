@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   countAutoPublishedRounds,
   getPublicRound,
+  getRoundForPlay,
   getRoundForScoring,
   listAutoPublishedForArchive,
   listAutoPublishedForSitemap,
@@ -37,6 +38,74 @@ describe('getPublicRound', () => {
   it('returns null when no row matches', async () => {
     const db = fakeDb([]);
     expect(await getPublicRound(db, 'missing')).toBeNull();
+  });
+});
+
+describe('getRoundForPlay', () => {
+  it('returns post score and parses created_utc + selftext from reddit_data JSONB', async () => {
+    const db = fakeDb([
+      {
+        id: 'r1',
+        title: 'TIFU by saying X',
+        subreddit: 'tifu',
+        difficulty: 'easy',
+        post_score: 24100,
+        reddit_data: { created_utc: 1746700000, selftext: 'Long story short, ...' },
+      },
+    ]);
+    const result = await getRoundForPlay(db, 'r1');
+    expect(result).toEqual({
+      id: 'r1',
+      title: 'TIFU by saying X',
+      subreddit: 'tifu',
+      difficulty: 'easy',
+      postScore: 24100,
+      createdUtcSeconds: 1746700000,
+      body: 'Long story short, ...',
+    });
+  });
+
+  it('returns body=null and createdUtcSeconds=null when reddit_data is missing (pre-migration row)', async () => {
+    const db = fakeDb([
+      {
+        id: 'r2',
+        title: 'plain row',
+        subreddit: 'showerthoughts',
+        difficulty: 'medium',
+        post_score: 921,
+        reddit_data: null,
+      },
+    ]);
+    const result = await getRoundForPlay(db, 'r2');
+    expect(result).toEqual({
+      id: 'r2',
+      title: 'plain row',
+      subreddit: 'showerthoughts',
+      difficulty: 'medium',
+      postScore: 921,
+      createdUtcSeconds: null,
+      body: null,
+    });
+  });
+
+  it('drops empty selftext (link-only posts have selftext="")', async () => {
+    const db = fakeDb([
+      {
+        id: 'r3',
+        title: 'link post',
+        subreddit: 'pics',
+        difficulty: 'easy',
+        post_score: 50,
+        reddit_data: { created_utc: 1746700000, selftext: '   ' },
+      },
+    ]);
+    const result = await getRoundForPlay(db, 'r3');
+    expect(result?.body).toBeNull();
+  });
+
+  it('returns null when no row matches', async () => {
+    const db = fakeDb([]);
+    expect(await getRoundForPlay(db, 'missing')).toBeNull();
   });
 });
 
