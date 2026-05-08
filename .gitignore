@@ -52,3 +52,4 @@ next-env.d.ts
 # auto-slice loop — local-only killswitch sentinel and run log
 scripts/.auto-slice-stop
 scripts/auto-slice.log
+scripts/.auto-slice-*.log

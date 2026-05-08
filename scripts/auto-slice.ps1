@@ -59,6 +59,40 @@ function Get-BlockedByIssues([int]$issueNumber) {
     return @($nums)
 }
 
+# If the per-slice log shows Anthropic's rate-limit message
+# ("resets H:MMam/pm (IANA/Zone)"), return seconds to sleep until reset+60s.
+# Returns $null on no match, malformed time, or unknown zone — caller should
+# fall through to the normal halt path in that case.
+function Get-RateLimitWaitSeconds([string]$logPath) {
+    if (-not (Test-Path $logPath)) { return $null }
+    $content = Get-Content -Path $logPath -Raw -ErrorAction SilentlyContinue
+    if (-not $content) { return $null }
+    $m = [regex]::Match($content, 'resets\s+(\d{1,2}):(\d{2})(am|pm)\s+\(([^)]+)\)', 'IgnoreCase')
+    if (-not $m.Success) { return $null }
+    $h        = [int]$m.Groups[1].Value
+    $min      = [int]$m.Groups[2].Value
+    $ampm     = $m.Groups[3].Value.ToLower()
+    $ianaZone = $m.Groups[4].Value
+    if ($ampm -eq 'pm' -and $h -ne 12) { $h += 12 }
+    elseif ($ampm -eq 'am' -and $h -eq 12) { $h = 0 }
+    if ($h -lt 0 -or $h -gt 23 -or $min -lt 0 -or $min -gt 59) { return $null }
+    try {
+        $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById($ianaZone)
+    } catch {
+        return $null
+    }
+    try {
+        $nowUtc     = [DateTime]::UtcNow
+        $nowZoned   = [System.TimeZoneInfo]::ConvertTimeFromUtc($nowUtc, $tz)
+        $resetZoned = [DateTime]::new($nowZoned.Year, $nowZoned.Month, $nowZoned.Day, $h, $min, 0, [DateTimeKind]::Unspecified)
+        $resetUtc   = [System.TimeZoneInfo]::ConvertTimeToUtc($resetZoned, $tz)
+        if ($resetUtc -le $nowUtc) { $resetUtc = $resetUtc.AddDays(1) }
+        return [int]($resetUtc - $nowUtc).TotalSeconds + 60
+    } catch {
+        return $null
+    }
+}
+
 # Returns @{ ready = $true } if all blockers closed, else
 # @{ ready = $false; openBlockers = @(N1, N2) }.
 function Test-BlockersClear([int]$issueNumber) {
@@ -203,6 +237,42 @@ while ($true) {
     }
 
     if ($code -ne 0) {
+        $waitSec = Get-RateLimitWaitSeconds $perSliceLog
+        if ($null -ne $waitSec) {
+            $waitMin = [int]($waitSec / 60)
+            Log "  rate limit hit on #$num — rolling back partial work and waiting ~${waitMin}m for reset." "Yellow"
+            # Drop any partial work the worker left uncommitted before sleeping.
+            git restore . 2>&1 | Out-Null
+            git clean -fd 2>&1 | Out-Null
+            # Allow this issue to be re-attempted on the next iteration.
+            $attempted.Remove($num)
+            # Don't let a zero-output rate-limited slice skew ETA.
+            if ($durations.Count -gt 0) {
+                $durations = @($durations | Select-Object -SkipLast 1)
+            }
+            # Preserve the per-slice log for debugging instead of letting the
+            # retry overwrite it.
+            $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+            try {
+                Move-Item -Path $perSliceLog -Destination "$perSliceLog.$stamp.ratelimited" -ErrorAction Stop
+            } catch { }
+            # Chunked sleep so the killswitch stays responsive during long waits.
+            $remaining = $waitSec
+            $bailedToStop = $false
+            while ($remaining -gt 0) {
+                if (Test-Path $StopFile) {
+                    Log "killswitch present during rate-limit wait — halting." "Yellow"
+                    $bailedToStop = $true
+                    break
+                }
+                $chunk = [Math]::Min(60, $remaining)
+                Start-Sleep -Seconds $chunk
+                $remaining -= $chunk
+            }
+            if ($bailedToStop) { break }
+            Log "  rate limit wait complete — retrying #$num." "Cyan"
+            continue
+        }
         Log "claude exited $code on #$num — halting loop." "Red"
         Log "  per-slice log: $perSliceLog" "DarkGray"
         break
