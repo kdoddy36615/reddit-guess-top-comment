@@ -38,6 +38,27 @@ export async function upsertDailyRunTotal(
 }
 
 /**
+ * Look up one player's daily-run-totals row for a single daily room.
+ * Returns null when the player hasn't finalized today's daily yet — the
+ * `/play/daily` SSR uses this as the "did this player wrap up?" signal so
+ * we can redirect them to `/play/daily/end` on revisit.
+ */
+export async function findDailyRunTotal(
+  db: Db,
+  args: { playerId: string; dailyRoomId: string },
+): Promise<{ totalScore: number; completedAt: string } | null> {
+  const { data, error } = await db
+    .from('daily_run_totals')
+    .select('total_score, completed_at')
+    .eq('player_id', args.playerId)
+    .eq('daily_room_id', args.dailyRoomId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { totalScore: data.total_score, completedAt: data.completed_at };
+}
+
+/**
  * Top-N rows on the today board for a single daily room. Ordered by score
  * desc; ties broken by `completed_at asc` so the earlier finisher ranks higher.
  */
