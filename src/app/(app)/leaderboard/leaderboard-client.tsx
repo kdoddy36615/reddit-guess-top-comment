@@ -176,11 +176,11 @@ export function LeaderboardClient({
 
       {isAnonymous ? (
         <Link
-          href="/sign-in"
-          data-testid="leaderboard-sign-in-cta"
+          href="/login"
+          data-testid="leaderboard-login-cta"
           className="block rounded-md bg-surface-2 px-4 py-3 text-center font-medium text-accent text-sm hover:bg-surface-3"
         >
-          sign in to compete →
+          log in to compete →
         </Link>
       ) : null}
     </section>

@@ -59,7 +59,7 @@ describe('LoginClient', () => {
     expect(mockReplace).toHaveBeenCalledWith('/account');
   });
 
-  it('renders inline helper text + a toast when sign-in fails', async () => {
+  it('renders inline helper text + a toast when login fails', async () => {
     const user = userEvent.setup();
     mockSignIn.mockResolvedValue({ error: { message: 'Invalid login credentials' } });
     render(

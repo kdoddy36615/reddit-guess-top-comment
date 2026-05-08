@@ -11,7 +11,6 @@ import {
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { formatUpvotes } from '@/lib/format/reddit-meta';
 import { embedText } from '@/lib/gemini/embed';
-import { shareToken } from '@/lib/share-token';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { scoreGuess } from '@/scoring';
 import { reactionFor } from '@/scoring/reaction';
@@ -67,7 +66,6 @@ export async function POST(req: NextRequest) {
       sessionId: session.id,
       score: prior.score,
       reaction,
-      shareToken: shareToken(playerId, roundId),
       alreadyGuessed: true,
       topComment: {
         text: round.topCommentText,
@@ -116,7 +114,6 @@ export async function POST(req: NextRequest) {
     score: Math.round(breakdown.finalScore),
     breakdown,
     reaction: reactionFor(breakdown.finalScore),
-    shareToken: shareToken(playerId, roundId),
     topComment: {
       text: round.topCommentText,
       upvotes: formatUpvotes(round.topCommentScore),

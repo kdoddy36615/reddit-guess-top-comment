@@ -158,7 +158,7 @@ describe('LeaderboardClient — header + today tab', () => {
     }
   });
 
-  it("shows 'sign in to compete →' linking to /sign-in when anonymous", () => {
+  it("shows 'log in to compete →' linking to /login when anonymous", () => {
     render(
       <LeaderboardClient
         dateLabel="2026-05-08"
@@ -169,12 +169,12 @@ describe('LeaderboardClient — header + today tab', () => {
         initialTab="today"
       />,
     );
-    const cta = screen.getByTestId('leaderboard-sign-in-cta');
-    expect(cta).toHaveTextContent(/sign in to compete/i);
-    expect(cta).toHaveAttribute('href', '/sign-in');
+    const cta = screen.getByTestId('leaderboard-login-cta');
+    expect(cta).toHaveTextContent(/log in to compete/i);
+    expect(cta).toHaveAttribute('href', '/login');
   });
 
-  it('hides the sign-in CTA when the viewer is signed in', () => {
+  it('hides the login CTA when the viewer is signed in', () => {
     render(
       <LeaderboardClient
         dateLabel="2026-05-08"
@@ -185,7 +185,7 @@ describe('LeaderboardClient — header + today tab', () => {
         initialTab="today"
       />,
     );
-    expect(screen.queryByTestId('leaderboard-sign-in-cta')).toBeNull();
+    expect(screen.queryByTestId('leaderboard-login-cta')).toBeNull();
   });
 
   it('renders an empty-state message when no rows exist yet', () => {

@@ -124,7 +124,7 @@ export async function POST(_req: NextRequest) {
   try {
     const db = createServiceRoleClient();
     const ids = await Promise.all(SAMPLES.map((s) => upsertSample(db, s)));
-    return NextResponse.json({ ok: true, roundIds: ids, firstUrl: `/round/${ids[0]}` });
+    return NextResponse.json({ ok: true, roundIds: ids, firstUrl: '/play/solo' });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

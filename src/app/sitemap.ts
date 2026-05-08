@@ -1,70 +1,45 @@
 import type { MetadataRoute } from 'next';
-import { countAutoPublishedRounds, listAutoPublishedForSitemap } from '@/db/rounds';
-import { ARCHIVE_PAGE_SIZE } from '@/lib/archive-pagination';
+import { LEGAL_SLUGS } from '@/app/(app)/legal/[slug]/legal-pages';
 import { getSiteUrl } from '@/lib/site-url';
-import { createServiceRoleClient } from '@/lib/supabase/server';
 
-// Per the Sitemaps protocol Google enforces a 50,000-URL ceiling per sitemap file.
-const URLS_PER_SITEMAP = 50_000;
-
-// DB lookup at request time, so don't cache the sitemap response.
-export const dynamic = 'force-dynamic';
-
-export async function generateSitemaps(): Promise<{ id: number }[]> {
-  const db = createServiceRoleClient();
-  const total = await countAutoPublishedRounds(db);
-  const shardCount = Math.max(1, Math.ceil(total / URLS_PER_SITEMAP));
-  return Array.from({ length: shardCount }, (_, i) => ({ id: i }));
-}
-
-export default async function sitemap(props: {
-  id: Promise<string>;
-}): Promise<MetadataRoute.Sitemap> {
-  const id = Number(await props.id);
+export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getSiteUrl();
-  const db = createServiceRoleClient();
+  const lastModified = new Date();
 
-  const offset = id * URLS_PER_SITEMAP;
-  const rounds = await listAutoPublishedForSitemap(db, {
-    offset,
-    limit: URLS_PER_SITEMAP,
-  });
+  const staticEntries: MetadataRoute.Sitemap = [
+    { url: baseUrl, lastModified, changeFrequency: 'daily', priority: 1 },
+    {
+      url: `${baseUrl}/play/solo`,
+      lastModified,
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/play/daily`,
+      lastModified,
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/rooms`,
+      lastModified,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/leaderboard`,
+      lastModified,
+      changeFrequency: 'daily',
+      priority: 0.7,
+    },
+  ];
 
-  const roundEntries: MetadataRoute.Sitemap = rounds.map((r) => ({
-    url: `${baseUrl}/round/${r.id}`,
-    lastModified: r.publishedAt,
-    changeFrequency: 'monthly',
-    priority: 0.8,
+  const legalEntries: MetadataRoute.Sitemap = LEGAL_SLUGS.map((slug) => ({
+    url: `${baseUrl}/legal/${slug}`,
+    lastModified,
+    changeFrequency: 'yearly',
+    priority: 0.3,
   }));
 
-  // Hub pages live in shard 0 only — they're not duplicated across shards.
-  if (id === 0) {
-    const total = await countAutoPublishedRounds(db);
-    const archivePages = Math.max(1, Math.ceil(total / ARCHIVE_PAGE_SIZE));
-    const archiveEntries: MetadataRoute.Sitemap = Array.from({ length: archivePages }, (_, i) => ({
-      url: i === 0 ? `${baseUrl}/archive` : `${baseUrl}/archive?page=${i + 1}`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.6,
-    }));
-
-    return [
-      {
-        url: baseUrl,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 1,
-      },
-      {
-        url: `${baseUrl}/daily`,
-        lastModified: new Date(),
-        changeFrequency: 'daily',
-        priority: 0.9,
-      },
-      ...archiveEntries,
-      ...roundEntries,
-    ];
-  }
-
-  return roundEntries;
+  return [...staticEntries, ...legalEntries];
 }

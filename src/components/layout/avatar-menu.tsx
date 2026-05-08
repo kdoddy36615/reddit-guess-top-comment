@@ -98,10 +98,10 @@ export function AvatarMenu({ state, nickname, onLogOut }: AvatarMenuProps) {
 
           {state === 'anonymous' ? (
             <>
-              <MenuLink href="/sign-in" onSelect={closeMenu}>
+              <MenuLink href="/login" onSelect={closeMenu}>
                 Log in
               </MenuLink>
-              <MenuLink href="/sign-in" onSelect={closeMenu}>
+              <MenuLink href="/signup" onSelect={closeMenu}>
                 Sign up
               </MenuLink>
               <MenuSeparator />

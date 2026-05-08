@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { shareToken } from '@/lib/share-token';
 import type { Database } from '@/lib/supabase/database.types';
 import type { ScoreBreakdown } from '@/scoring';
 
@@ -31,26 +30,6 @@ export async function insertGuess(
     .single();
   if (error) throw error;
   return { id: data.id };
-}
-
-/**
- * Anonymized recent guesses for a round, used to give /round/[id] textual
- * depth without leaking per-player scores. Filtered by `minScore` so spam
- * (off-topic guesses) doesn't poison the page.
- */
-export async function listRecentGuessesForRound(
-  db: Db,
-  args: { roundId: string; limit: number; minScore: number },
-): Promise<{ guessText: string }[]> {
-  const { data, error } = await db
-    .from('guesses')
-    .select('guess_text')
-    .eq('round_id', args.roundId)
-    .gte('score', args.minScore)
-    .order('submitted_at', { ascending: false })
-    .limit(args.limit);
-  if (error) throw error;
-  return (data ?? []).map((r) => ({ guessText: r.guess_text }));
 }
 
 export async function findGuess(
@@ -103,47 +82,4 @@ export async function selectGuessSubredditsForPlayer(
     if (!round) return [];
     return [{ subreddit: round.subreddit, score: r.score }];
   });
-}
-
-export type ShareResult = {
-  playerId: string;
-  nickname: string;
-  guessText: string;
-  score: number;
-};
-
-/**
- * Resolve a /round/[roundId]/result/[token] share URL back to the original
- * (player, score, guess). Tokens are deterministic hashes of (player, round),
- * so we scan all guesses scoped to the round and match by recomputing the
- * token. Bounded by the number of guesses on a single round.
- */
-export async function findGuessByShareToken(
-  db: Db,
-  args: { roundId: string; token: string },
-): Promise<ShareResult | null> {
-  const { data, error } = await db
-    .from('guesses')
-    .select('player_id, guess_text, score, players ( nickname )')
-    .eq('round_id', args.roundId);
-  if (error) throw error;
-  if (!data) return null;
-
-  for (const row of data as Array<{
-    player_id: string;
-    guess_text: string;
-    score: number;
-    players: { nickname: string } | { nickname: string }[] | null;
-  }>) {
-    if (shareToken(row.player_id, args.roundId) !== args.token) continue;
-    const player = Array.isArray(row.players) ? row.players[0] : row.players;
-    if (!player) continue;
-    return {
-      playerId: row.player_id,
-      nickname: player.nickname,
-      guessText: row.guess_text,
-      score: row.score,
-    };
-  }
-  return null;
 }

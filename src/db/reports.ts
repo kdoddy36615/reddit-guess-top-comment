@@ -5,7 +5,7 @@ type Db = SupabaseClient<Database>;
 
 /**
  * Report count at which an `auto_published` round flips to `reported` and
- * disappears from gameplay, sitemap, and archive. Tunable; not in scoring.ts
+ * disappears from gameplay and the sitemap. Tunable; not in scoring.ts
  * because it has nothing to do with scoring.
  */
 export const REPORT_THRESHOLD = 3;
