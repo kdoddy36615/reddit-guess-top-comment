@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DailyRunTotal } from './index';
-import { aggregateDailyRun, rankBoard, windowBoardForPlayer } from './index';
+import { aggregateDailyRun, computeStreak, rankBoard, windowBoardForPlayer } from './index';
 
 function total(
   playerId: string,
@@ -163,5 +163,86 @@ describe('windowBoardForPlayer', () => {
         rank: 1,
       },
     ]);
+  });
+});
+
+describe('computeStreak', () => {
+  it('returns 0 / inactive when the player has no completed runs', () => {
+    expect(computeStreak({ completedRoomIds: [], today: '2026-05-08' })).toEqual({
+      count: 0,
+      active: false,
+    });
+  });
+
+  it('returns 1 / active when only today is completed', () => {
+    expect(computeStreak({ completedRoomIds: ['daily-2026-05-08'], today: '2026-05-08' })).toEqual({
+      count: 1,
+      active: true,
+    });
+  });
+
+  it('counts a 4-day run ending today', () => {
+    expect(
+      computeStreak({
+        completedRoomIds: [
+          'daily-2026-05-05',
+          'daily-2026-05-06',
+          'daily-2026-05-07',
+          'daily-2026-05-08',
+        ],
+        today: '2026-05-08',
+      }),
+    ).toEqual({ count: 4, active: true });
+  });
+
+  it('stops counting at the first gap walking backwards from today', () => {
+    expect(
+      computeStreak({
+        completedRoomIds: [
+          'daily-2026-05-01',
+          'daily-2026-05-02',
+          'daily-2026-05-06',
+          'daily-2026-05-07',
+          'daily-2026-05-08',
+        ],
+        today: '2026-05-08',
+      }),
+    ).toEqual({ count: 3, active: true });
+  });
+
+  it('returns 0 / inactive when today is not completed (streak broken)', () => {
+    expect(
+      computeStreak({
+        completedRoomIds: ['daily-2026-05-06', 'daily-2026-05-07'],
+        today: '2026-05-08',
+      }),
+    ).toEqual({ count: 0, active: false });
+  });
+
+  it('handles month boundaries (April 30 → May 1)', () => {
+    expect(
+      computeStreak({
+        completedRoomIds: ['daily-2026-04-30', 'daily-2026-05-01'],
+        today: '2026-05-01',
+      }),
+    ).toEqual({ count: 2, active: true });
+  });
+
+  it('handles year boundaries (Dec 31 → Jan 1)', () => {
+    expect(
+      computeStreak({
+        completedRoomIds: ['daily-2025-12-31', 'daily-2026-01-01'],
+        today: '2026-01-01',
+      }),
+    ).toEqual({ count: 2, active: true });
+  });
+
+  it('ignores duplicates in the input', () => {
+    expect(
+      computeStreak({
+        completedRoomIds: ['daily-2026-05-08', 'daily-2026-05-08', 'daily-2026-05-07'],
+        today: '2026-05-08',
+      }),
+    ).toEqual({ count: 2, active: true });
   });
 });

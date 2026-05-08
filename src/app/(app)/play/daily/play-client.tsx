@@ -158,7 +158,10 @@ export function DailyPlayClient({
           setAdvancing(false);
           return;
         }
-        router.replace('/play/daily/end');
+        // `?just=1` flags the just-finished render so the summary screen plays
+        // the score-up + staggered fade-up animations. Revisits (no query)
+        // skip animations per DESIGN.md §5.
+        router.replace('/play/daily/end?just=1');
       } else {
         // Rounds 1–4: progress.currentRoundId already points at the next
         // unguessed round once the guess for this round was inserted, so a

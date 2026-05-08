@@ -240,7 +240,7 @@ describe('DailyPlayClient', () => {
     expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({
       sessionId: 's1',
     });
-    expect(mockReplace).toHaveBeenCalledWith('/play/daily/end');
+    expect(mockReplace).toHaveBeenCalledWith('/play/daily/end?just=1');
   });
 
   it('clicking [flag] calls /api/report with the roundId', async () => {

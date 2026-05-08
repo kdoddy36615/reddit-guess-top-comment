@@ -48,6 +48,40 @@ export function windowBoardForPlayer(args: {
   return args.ranked.slice(start, end);
 }
 
+function prevDay(yyyymmdd: string): string {
+  const d = new Date(`${yyyymmdd}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const y = d.getUTCFullYear().toString().padStart(4, '0');
+  const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = d.getUTCDate().toString().padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Count consecutive daily completions ending at `today`. The streak is "active"
+ * when today itself is in the completed set — the moment a player misses a
+ * day, their streak resets to 0 and the 🔥 affordance disappears.
+ *
+ * `completedRoomIds` is the player's full set of finished `daily_room_id`s
+ * (any order, duplicates ignored). `today` is the YYYY-MM-DD that the caller
+ * considers "now" — passed in rather than computed so the function stays pure
+ * and so the daily-end summary can use the same `dailyRoomId(new Date())`
+ * basis the player sees on /play/daily.
+ */
+export function computeStreak(args: { completedRoomIds: string[]; today: string }): {
+  count: number;
+  active: boolean;
+} {
+  const days = new Set(args.completedRoomIds.map((id) => id.replace(/^daily-/, '')));
+  let count = 0;
+  let cursor = args.today;
+  while (days.has(cursor)) {
+    count += 1;
+    cursor = prevDay(cursor);
+  }
+  return { count, active: count > 0 };
+}
+
 export function aggregateDailyRun(args: {
   playerId: string;
   dailyRoomId: string;
