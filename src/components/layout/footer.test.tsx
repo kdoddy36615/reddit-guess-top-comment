@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { Footer } from './footer';
 
@@ -8,11 +8,24 @@ describe('Footer', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 
-  it('renders empty for now (legal links wired in #48)', () => {
+  it('renders Terms, Privacy, and GitHub links', () => {
     render(<Footer />);
     const footer = screen.getByRole('contentinfo');
-    // No nav links yet — legal links land in slice 32 / issue #48.
-    expect(footer.querySelectorAll('a').length).toBe(0);
+    const terms = within(footer).getByRole('link', { name: /terms/i });
+    const privacy = within(footer).getByRole('link', { name: /privacy/i });
+    const github = within(footer).getByRole('link', { name: /github/i });
+
+    expect(terms).toHaveAttribute('href', '/legal/terms');
+    expect(privacy).toHaveAttribute('href', '/legal/privacy');
+    expect(github.getAttribute('href')).toMatch(/^https:\/\/github\.com\//);
+  });
+
+  it('opens the GitHub link in a new tab with safe rel', () => {
+    render(<Footer />);
+    const github = within(screen.getByRole('contentinfo')).getByRole('link', { name: /github/i });
+    expect(github).toHaveAttribute('target', '_blank');
+    expect(github.getAttribute('rel') ?? '').toMatch(/noopener/);
+    expect(github.getAttribute('rel') ?? '').toMatch(/noreferrer/);
   });
 
   it('forwards className for layout overrides', () => {
