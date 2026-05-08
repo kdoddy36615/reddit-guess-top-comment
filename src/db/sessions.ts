@@ -80,6 +80,10 @@ export async function findOrCreateRoomSession(
 ): Promise<RoomSession> {
   const rng = args.rng ?? Math.random;
 
+  // Replay: a single room can host multiple matches over its lifetime. Only
+  // the *active* (non-`session_complete`) session is unique per code (per the
+  // partial unique index added in slice 46). Find the most-recent active row
+  // and resume it; if every row is complete, fall through and insert fresh.
   const existing = await db
     .from('game_sessions')
     .select(
@@ -87,6 +91,9 @@ export async function findOrCreateRoomSession(
     )
     .eq('mode', 'room')
     .eq('room_id', args.code)
+    .neq('current_round_state', 'session_complete')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (existing.error) throw existing.error;
   if (existing.data) {
@@ -141,6 +148,9 @@ export async function findOrCreateRoomSession(
         )
         .eq('mode', 'room')
         .eq('room_id', args.code)
+        .neq('current_round_state', 'session_complete')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (winner.error) throw winner.error;
       if (winner.data) {

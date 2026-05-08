@@ -583,6 +583,9 @@ function fakeRoomDb(opts: RoomFakeOpts) {
     const reads = {
       select: () => reads,
       eq: () => reads,
+      neq: () => reads,
+      order: () => reads,
+      limit: () => reads,
       maybeSingle: async () => ({ data: opts.existing ?? null, error: null }),
       insert: (row: unknown) => {
         inserts.push({ table: 'game_sessions', row });
