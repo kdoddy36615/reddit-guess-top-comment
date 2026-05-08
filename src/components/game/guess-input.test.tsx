@@ -20,9 +20,7 @@ describe('GuessInput', () => {
   it('reflects the controlled value and fires onChange with the next value', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    const { rerender } = render(
-      <GuessInput value="" onChange={onChange} onSubmit={() => {}} />,
-    );
+    const { rerender } = render(<GuessInput value="" onChange={onChange} onSubmit={() => {}} />);
     const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
     await user.type(ta, 'hi');
     expect(onChange).toHaveBeenCalled();
@@ -74,9 +72,7 @@ describe('GuessInput', () => {
   });
 
   it('submitting state: shows a spinner, disables the textarea, marks aria-busy', () => {
-    render(
-      <GuessInput value="g" onChange={() => {}} onSubmit={() => {}} submitting />,
-    );
+    render(<GuessInput value="g" onChange={() => {}} onSubmit={() => {}} submitting />);
     const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
     expect(ta).toBeDisabled();
     const spinner = screen.getByTestId('guess-input-spinner');
@@ -91,9 +87,7 @@ describe('GuessInput', () => {
   it('submitting state: Cmd+Enter does not re-fire onSubmit', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-    render(
-      <GuessInput value="g" onChange={() => {}} onSubmit={onSubmit} submitting />,
-    );
+    render(<GuessInput value="g" onChange={() => {}} onSubmit={onSubmit} submitting />);
     const ta = screen.getByRole('textbox');
     ta.focus();
     await user.keyboard('{Control>}{Enter}{/Control}');
@@ -102,12 +96,7 @@ describe('GuessInput', () => {
 
   it('error state: danger border, helper text below, aria-invalid set', () => {
     render(
-      <GuessInput
-        value="g"
-        onChange={() => {}}
-        onSubmit={() => {}}
-        error="guess can't be empty"
-      />,
+      <GuessInput value="g" onChange={() => {}} onSubmit={() => {}} error="guess can't be empty" />,
     );
     const ta = screen.getByRole('textbox');
     expect(ta).toHaveAttribute('aria-invalid', 'true');

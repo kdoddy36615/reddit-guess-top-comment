@@ -4,8 +4,7 @@ import { cn } from '@/lib/cn';
 
 export type LeaderboardRowVariant = 'default' | 'you';
 
-export interface LeaderboardRowProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'slot'> {
+export interface LeaderboardRowProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'slot'> {
   rank: number;
   name: string;
   score: number | string;

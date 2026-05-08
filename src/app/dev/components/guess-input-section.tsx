@@ -23,19 +23,11 @@ export function GuessInputSection() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-1.5">
           <p className="font-mono text-xs uppercase tracking-wider text-text-muted">default</p>
-          <GuessInput
-            value={defaultValue}
-            onChange={setDefaultValue}
-            onSubmit={() => {}}
-          />
+          <GuessInput value={defaultValue} onChange={setDefaultValue} onSubmit={() => {}} />
         </div>
         <div className="space-y-1.5">
           <p className="font-mono text-xs uppercase tracking-wider text-text-muted">typing</p>
-          <GuessInput
-            value={typingValue}
-            onChange={setTypingValue}
-            onSubmit={() => {}}
-          />
+          <GuessInput value={typingValue} onChange={setTypingValue} onSubmit={() => {}} />
         </div>
         <div className="space-y-1.5">
           <p className="font-mono text-xs uppercase tracking-wider text-text-muted">submitting</p>

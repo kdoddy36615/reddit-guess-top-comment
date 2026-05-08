@@ -251,6 +251,92 @@ export type Database = {
         }
         Relationships: []
       }
+      room_metadata: {
+        Row: {
+          code: string
+          created_at: string
+          ended_at: string | null
+          host_id: string | null
+          locked: boolean
+          max_players: number
+          mode: string
+          round_count: number
+          started_at: string | null
+          status: string
+          timer_seconds: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string | null
+          locked?: boolean
+          max_players: number
+          mode: string
+          round_count?: number
+          started_at?: string | null
+          status?: string
+          timer_seconds?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string | null
+          locked?: boolean
+          max_players?: number
+          mode?: string
+          round_count?: number
+          started_at?: string | null
+          status?: string
+          timer_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_metadata_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_players: {
+        Row: {
+          is_kicked: boolean
+          joined_at: string
+          player_id: string
+          room_code: string
+        }
+        Insert: {
+          is_kicked?: boolean
+          joined_at?: string
+          player_id: string
+          room_code: string
+        }
+        Update: {
+          is_kicked?: boolean
+          joined_at?: string
+          player_id?: string
+          room_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_players_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_players_room_code_fkey"
+            columns: ["room_code"]
+            isOneToOne: false
+            referencedRelation: "room_metadata"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       round_reports: {
         Row: {
           player_id: string

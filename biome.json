@@ -17,6 +17,7 @@
       "!**/playwright-report",
       "!**/test-results",
       "!src/lib/supabase/database.types.ts",
+      "!handoff",
       "!**/*.css"
     ]
   },
