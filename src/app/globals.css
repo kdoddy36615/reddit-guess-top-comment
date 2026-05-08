@@ -102,3 +102,11 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* DESIGN.md §"/r/[code]" — connection banner slide-in.
+   Gated behind `motion-safe:` at the consuming class so reduced-motion users
+   see the banner appear statically (no transform, no opacity dip). */
+@keyframes banner-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}

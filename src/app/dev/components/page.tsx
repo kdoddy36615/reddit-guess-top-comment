@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ConnectionBanner } from '@/components/ui/connection-banner';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,6 +40,7 @@ const SECTIONS = [
   { id: 'comment-card', label: 'CommentCard' },
   { id: 'leaderboard-row', label: 'LeaderboardRow' },
   { id: 'nickname-prompt', label: 'NicknamePrompt' },
+  { id: 'connection-banner', label: 'ConnectionBanner' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -493,8 +495,50 @@ export default function DevComponentsPage() {
         <CommentCardSection />
         <LeaderboardRowSection />
         <NicknamePromptSection />
+        <ConnectionBannerSection />
       </div>
     </main>
+  );
+}
+
+function ConnectionBannerSection() {
+  // The real banner is `position: fixed` and would float over the page during
+  // dev review. Each example wraps it in a non-fixed shell so all three states
+  // are visible inline. The class override flips `fixed` → `relative` only for
+  // the showcase; product callers (slice 27 layout) get the genuine fixed bar.
+  // tailwind-merge (cn) keeps the latest position utilities, replacing
+  // `fixed top-0 right-0 left-0 z-50` so each state renders inline for review.
+  const inlineOverride = 'static top-auto right-auto left-auto z-auto';
+  return (
+    <section id="connection-banner" className="scroll-mt-20 space-y-4">
+      <header>
+        <h2 className="font-display font-semibold text-2xl text-text">ConnectionBanner</h2>
+        <p className="font-mono text-text-faint text-xs">
+          live (hidden) · reconnecting (warning) · disconnected (danger) · reduced-motion safe —
+          DESIGN.md §/r/[code]
+        </p>
+      </header>
+
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <p className="font-mono text-text-muted text-xs uppercase tracking-wider">live</p>
+          <div className="rounded-md border border-border-strong border-dashed bg-surface px-3 py-2 text-text-faint text-xs">
+            (no banner — connection is healthy)
+            <ConnectionBanner status="live" />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="font-mono text-text-muted text-xs uppercase tracking-wider">reconnecting</p>
+          <ConnectionBanner status="reconnecting" attempt={2} className={inlineOverride} />
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="font-mono text-text-muted text-xs uppercase tracking-wider">disconnected</p>
+          <ConnectionBanner status="disconnected" className={inlineOverride} />
+        </div>
+      </div>
+    </section>
   );
 }
 

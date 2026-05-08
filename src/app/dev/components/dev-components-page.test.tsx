@@ -30,6 +30,7 @@ describe('/dev/components page', () => {
       '#comment-card',
       '#leaderboard-row',
       '#nickname-prompt',
+      '#connection-banner',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -53,10 +54,22 @@ describe('/dev/components page', () => {
       'comment-card',
       'leaderboard-row',
       'nickname-prompt',
+      'connection-banner',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
     }
+  });
+
+  it('covers ConnectionBanner with all three states (live hidden, reconnecting, disconnected)', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('connection-banner') as HTMLElement;
+    expect(root).not.toBeNull();
+    const banners = root.querySelectorAll('[data-connection-banner]');
+    // live renders nothing; reconnecting + disconnected render one each.
+    expect(banners.length).toBe(2);
+    const statuses = Array.from(banners).map((el) => el.getAttribute('data-status'));
+    expect(new Set(statuses)).toEqual(new Set(['reconnecting', 'disconnected']));
   });
 
   it('covers every Button variant × size × state combination', () => {
