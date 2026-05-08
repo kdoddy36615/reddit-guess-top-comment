@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { GuessInputSection } from './guess-input-section';
+import { PlayerChipSection, RoundTimerSection } from './multiplayer-sections';
 import { NicknamePromptSection } from './nickname-prompt-section';
 import { DialogSection, TabsSection, ToastSection, TooltipSection } from './overlay-sections';
 
@@ -41,6 +42,8 @@ const SECTIONS = [
   { id: 'leaderboard-row', label: 'LeaderboardRow' },
   { id: 'nickname-prompt', label: 'NicknamePrompt' },
   { id: 'connection-banner', label: 'ConnectionBanner' },
+  { id: 'player-chip', label: 'PlayerChip' },
+  { id: 'round-timer', label: 'RoundTimer' },
 ];
 
 const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
@@ -496,6 +499,8 @@ export default function DevComponentsPage() {
         <LeaderboardRowSection />
         <NicknamePromptSection />
         <ConnectionBannerSection />
+        <PlayerChipSection />
+        <RoundTimerSection />
       </div>
     </main>
   );

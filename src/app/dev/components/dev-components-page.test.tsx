@@ -31,6 +31,8 @@ describe('/dev/components page', () => {
       '#leaderboard-row',
       '#nickname-prompt',
       '#connection-banner',
+      '#player-chip',
+      '#round-timer',
     ]) {
       expect(navHrefs, `nav anchor ${anchor}`).toContain(anchor);
     }
@@ -55,6 +57,8 @@ describe('/dev/components page', () => {
       'leaderboard-row',
       'nickname-prompt',
       'connection-banner',
+      'player-chip',
+      'round-timer',
     ]) {
       const section = document.getElementById(id);
       expect(section, `section #${id} missing`).not.toBeNull();
@@ -254,6 +258,33 @@ describe('/dev/components page', () => {
     // Two NicknamePrompt instances rendered (one per example).
     const forms = root.querySelectorAll('[data-testid="nickname-prompt"]');
     expect(forms.length).toBe(2);
+  });
+
+  it('covers PlayerChip with all four state variants (typing / submitted / disconnected / kicked)', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('player-chip') as HTMLElement;
+    expect(root).not.toBeNull();
+    const chips = root.querySelectorAll('[data-testid="player-chip"]');
+    // 4 default-state chips + 4 'you' chips = 8.
+    expect(chips.length).toBe(8);
+    const seenStates = new Set(Array.from(chips).map((c) => c.getAttribute('data-state')));
+    expect(seenStates).toEqual(new Set(['typing', 'submitted', 'disconnected', 'kicked']));
+    const youChips = root.querySelectorAll('[data-variant="you"]');
+    expect(youChips.length).toBe(4);
+  });
+
+  it('covers RoundTimer with active / expiring / expired / you variants', () => {
+    render(<DevComponentsPage />);
+    const root = document.getElementById('round-timer') as HTMLElement;
+    expect(root).not.toBeNull();
+    const timers = root.querySelectorAll('[data-testid="round-timer"]');
+    expect(timers.length).toBeGreaterThanOrEqual(4);
+    const seenStates = new Set(Array.from(timers).map((t) => t.getAttribute('data-state')));
+    expect(seenStates.has('active')).toBe(true);
+    expect(seenStates.has('expiring')).toBe(true);
+    expect(seenStates.has('expired')).toBe(true);
+    const youTimers = root.querySelectorAll('[data-variant="you"]');
+    expect(youTimers.length).toBeGreaterThanOrEqual(1);
   });
 
   it('covers Progress (round pips): full pending → partial → complete examples', () => {
