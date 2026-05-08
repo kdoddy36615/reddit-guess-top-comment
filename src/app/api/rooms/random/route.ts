@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ensureCurrentPlayer } from '@/lib/auth/ensure-player';
-import { findOrCreateRandomRoom } from '@/lib/rooms/matchmaking';
+import { assignOrCreate } from '@/lib/rooms/matchmakingQueue';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -8,10 +8,10 @@ export const runtime = 'nodejs';
 /**
  * POST /api/rooms/random — queue the player for a random match.
  *
- * v1 implementation: find any random-mode lobby with capacity, or spin up a
- * fresh one. The 90-second start timer + min-3 cancel/re-queue logic ships in
- * slice 44 (issue #44). Until then the room sits in lobby until something
- * else advances it.
+ * Picks the oldest random-mode lobby with capacity, or spins up a fresh
+ * one. The 90s start timer + min-3 cancel/re-queue lifecycle is driven by
+ * `/api/cron/matchmaking-tick`, which an external scheduler hits every
+ * few seconds.
  */
 export async function POST() {
   const player = await ensureCurrentPlayer();
@@ -20,6 +20,6 @@ export async function POST() {
   }
 
   const db = createServiceRoleClient();
-  const room = await findOrCreateRandomRoom(db, { playerId: player.id });
+  const { room } = await assignOrCreate(db, { playerId: player.id });
   return NextResponse.json({ code: room.code });
 }
