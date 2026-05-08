@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Toaster } from '@/components/ui/toast';
-import { getRoom, getRoomPlayers } from '@/db/rooms';
+import { getRoom, getRoomPlayers, isRoomMember } from '@/db/rooms';
 import { ensureCurrentPlayer } from '@/lib/auth/ensure-player';
 import { isValidRoomCode } from '@/lib/rooms/code';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -56,7 +56,18 @@ export default async function LobbyPage({ params }: LobbyPageProps) {
   const room = await getRoom(db, code);
   if (!room) notFound();
 
+  // Reconnection: existing room members are forwarded to the live screen
+  // (or end screen) instead of seeing the mid-match message. Non-members
+  // hitting a live URL still get the gate.
   if (room.status === 'live' || room.status === 'ended') {
+    const player = await ensureCurrentPlayer();
+    if (player) {
+      const member = await isRoomMember(db, { code, playerId: player.id });
+      if (member) {
+        if (room.status === 'live') redirect(`/r/${code}/play`);
+        if (room.status === 'ended') redirect(`/r/${code}/end`);
+      }
+    }
     return (
       <>
         <MidMatchMessage status={room.status} code={code} />

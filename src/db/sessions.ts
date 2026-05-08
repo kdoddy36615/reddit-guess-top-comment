@@ -56,6 +56,190 @@ export async function findOrCreateSoloSession(
   };
 }
 
+export type RoomSession = {
+  id: string;
+  currentRoundId: string | null;
+  currentRoundState: RoundState;
+  currentRoundStartedAt: string | null;
+  currentRoundRevealedAt: string | null;
+};
+
+/**
+ * Resolve the `game_sessions` row for a multiplayer room. If none exists,
+ * pick `roundCount` rounds (uniform-random over `auto_published`), insert
+ * the session + `session_rounds`, and stamp the round-start timestamp so
+ * the timer ring is server-authoritative for all clients.
+ *
+ * Idempotent under concurrent calls: the (mode, room_id) UNIQUE constraint
+ * means a losing INSERT returns 23505 — we re-SELECT and return the winner
+ * without writing additional `session_rounds`.
+ */
+export async function findOrCreateRoomSession(
+  db: Db,
+  args: { code: string; roundCount: number; rng?: Rng },
+): Promise<RoomSession> {
+  const rng = args.rng ?? Math.random;
+
+  const existing = await db
+    .from('game_sessions')
+    .select(
+      'id, current_round_id, current_round_state, current_round_started_at, current_round_revealed_at',
+    )
+    .eq('mode', 'room')
+    .eq('room_id', args.code)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data) {
+    return {
+      id: existing.data.id,
+      currentRoundId: existing.data.current_round_id,
+      currentRoundState: existing.data.current_round_state as RoundState,
+      currentRoundStartedAt: existing.data.current_round_started_at,
+      currentRoundRevealedAt: existing.data.current_round_revealed_at,
+    };
+  }
+
+  const eligible = await db.from('rounds').select('id').eq('status', 'auto_published');
+  if (eligible.error) throw eligible.error;
+  const candidates = ((eligible.data ?? []) as { id: string }[]).map((r) => r.id);
+  if (candidates.length < args.roundCount) {
+    throw new Error(
+      `Insufficient rounds for room ${args.code}: needed ${args.roundCount}, have ${candidates.length}`,
+    );
+  }
+
+  // Fisher-Yates partial shuffle to pick distinct rounds.
+  const pool = candidates.slice();
+  const picked: string[] = [];
+  for (let i = 0; i < args.roundCount; i++) {
+    const j = i + Math.floor(rng() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+    picked.push(pool[i]);
+  }
+
+  const startedAt = new Date().toISOString();
+  const inserted = await db
+    .from('game_sessions')
+    .insert({
+      mode: 'room',
+      room_id: args.code,
+      current_round_id: picked[0],
+      current_round_state: 'guessing',
+      current_round_started_at: startedAt,
+    })
+    .select(
+      'id, current_round_id, current_round_state, current_round_started_at, current_round_revealed_at',
+    )
+    .single();
+
+  if (inserted.error) {
+    if ((inserted.error as { code?: string }).code === '23505') {
+      const winner = await db
+        .from('game_sessions')
+        .select(
+          'id, current_round_id, current_round_state, current_round_started_at, current_round_revealed_at',
+        )
+        .eq('mode', 'room')
+        .eq('room_id', args.code)
+        .maybeSingle();
+      if (winner.error) throw winner.error;
+      if (winner.data) {
+        return {
+          id: winner.data.id,
+          currentRoundId: winner.data.current_round_id,
+          currentRoundState: winner.data.current_round_state as RoundState,
+          currentRoundStartedAt: winner.data.current_round_started_at,
+          currentRoundRevealedAt: winner.data.current_round_revealed_at,
+        };
+      }
+    }
+    throw inserted.error;
+  }
+
+  const sessionId = inserted.data.id;
+  const sessionRoundRows = picked.map((round_id, round_index) => ({
+    session_id: sessionId,
+    round_index,
+    round_id,
+  }));
+  const sr = await db.from('session_rounds').insert(sessionRoundRows);
+  if (sr.error) throw sr.error;
+
+  return {
+    id: sessionId,
+    currentRoundId: inserted.data.current_round_id,
+    currentRoundState: inserted.data.current_round_state as RoundState,
+    currentRoundStartedAt: inserted.data.current_round_started_at,
+    currentRoundRevealedAt: inserted.data.current_round_revealed_at,
+  };
+}
+
+/**
+ * Move a room session's pointer to the next `session_rounds` row in
+ * `round_index` order. Resets `current_round_started_at = now`, clears
+ * `current_round_revealed_at`, and sets state to `guessing`. Returns null
+ * (and flips state to `session_complete`) when no next round exists.
+ */
+export async function advanceRoomSession(
+  db: Db,
+  args: { sessionId: string; now?: () => Date },
+): Promise<{ roundId: string; roundIndex: number } | null> {
+  const now = args.now ? args.now() : new Date();
+
+  const sessionRow = await db
+    .from('game_sessions')
+    .select('current_round_id')
+    .eq('id', args.sessionId)
+    .maybeSingle();
+  if (sessionRow.error) throw sessionRow.error;
+  const currentRoundId = sessionRow.data?.current_round_id ?? null;
+
+  const sr = await db
+    .from('session_rounds')
+    .select('round_index, round_id')
+    .eq('session_id', args.sessionId)
+    .order('round_index', { ascending: true });
+  if (sr.error) throw sr.error;
+  const ordered = ((sr.data ?? []) as { round_index: number; round_id: string }[])
+    .slice()
+    .sort((a, b) => a.round_index - b.round_index);
+
+  // Find the row right after the current one (by round_index). If we don't
+  // know the current round (fresh advance from null pointer), start at index 0.
+  let next: { round_index: number; round_id: string } | undefined;
+  if (!currentRoundId) {
+    next = ordered[0];
+  } else {
+    const currentIdx = ordered.findIndex((r) => r.round_id === currentRoundId);
+    next = currentIdx >= 0 ? ordered[currentIdx + 1] : undefined;
+  }
+
+  if (!next) {
+    const upd = await db
+      .from('game_sessions')
+      .update({
+        current_round_state: 'session_complete',
+        completed_at: now.toISOString(),
+      })
+      .eq('id', args.sessionId);
+    if (upd.error) throw upd.error;
+    return null;
+  }
+
+  const upd = await db
+    .from('game_sessions')
+    .update({
+      current_round_id: next.round_id,
+      current_round_state: 'guessing',
+      current_round_started_at: now.toISOString(),
+      current_round_revealed_at: null,
+    })
+    .eq('id', args.sessionId);
+  if (upd.error) throw upd.error;
+
+  return { roundId: next.round_id, roundIndex: next.round_index };
+}
+
 export async function findOrCreateDailySession(
   db: Db,
   args: { date: Date; roundCount?: number },
@@ -210,6 +394,19 @@ export async function getOrCreateActiveSoloSession(db: Db, playerId: string): Pr
     .single();
   if (inserted.error) throw inserted.error;
   return inserted.data.id;
+}
+
+export async function getSessionMode(
+  db: Db,
+  sessionId: string,
+): Promise<'solo' | 'daily' | 'room' | null> {
+  const { data, error } = await db
+    .from('game_sessions')
+    .select('mode')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.mode as 'solo' | 'daily' | 'room' | undefined) ?? null;
 }
 
 export async function getSessionState(db: Db, sessionId: string): Promise<RoundState | null> {

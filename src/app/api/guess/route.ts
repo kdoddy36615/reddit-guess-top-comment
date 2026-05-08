@@ -2,7 +2,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { findGuess, insertGuess } from '@/db/guesses';
 import { getRoundForScoring } from '@/db/rounds';
-import { findOrCreateSoloSession, isRoundInSession, setSessionState } from '@/db/sessions';
+import {
+  findOrCreateSoloSession,
+  getSessionMode,
+  isRoundInSession,
+  setSessionState,
+} from '@/db/sessions';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
 import { formatUpvotes } from '@/lib/format/reddit-meta';
 import { embedText } from '@/lib/gemini/embed';
@@ -97,7 +102,14 @@ export async function POST(req: NextRequest) {
     score: Math.round(breakdown.finalScore),
     breakdown,
   });
-  await setSessionState(db, session.id, 'revealed');
+  // Room sessions manage their own state machine (server-authoritative
+  // all-submit / timer expiry); flipping per-submit would leak the reveal
+  // to the submitter's client before peers were ready. Solo and daily
+  // continue to auto-flip on submit.
+  const mode = await getSessionMode(db, session.id);
+  if (mode !== 'room') {
+    await setSessionState(db, session.id, 'revealed');
+  }
 
   return NextResponse.json({
     sessionId: session.id,

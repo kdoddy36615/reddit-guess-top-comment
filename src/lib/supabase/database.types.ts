@@ -109,6 +109,8 @@ export type Database = {
           created_at: string
           creator_player_id: string | null
           current_round_id: string | null
+          current_round_revealed_at: string | null
+          current_round_started_at: string | null
           current_round_state: string
           id: string
           mode: string
@@ -119,6 +121,8 @@ export type Database = {
           created_at?: string
           creator_player_id?: string | null
           current_round_id?: string | null
+          current_round_revealed_at?: string | null
+          current_round_started_at?: string | null
           current_round_state?: string
           id?: string
           mode: string
@@ -129,6 +133,8 @@ export type Database = {
           created_at?: string
           creator_player_id?: string | null
           current_round_id?: string | null
+          current_round_revealed_at?: string | null
+          current_round_started_at?: string | null
           current_round_state?: string
           id?: string
           mode?: string

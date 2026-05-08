@@ -193,6 +193,26 @@ export async function joinRoom(
   return { ok: true };
 }
 
+/**
+ * Check whether a player is currently a (non-kicked) member of a room. Used
+ * by `/r/[code]/play` to gate reconnection — only existing members may
+ * re-enter a live match; everyone else lands on the mid-match message.
+ */
+export async function isRoomMember(
+  db: Db,
+  args: { code: string; playerId: string },
+): Promise<boolean> {
+  const { data, error } = await db
+    .from('room_players')
+    .select('is_kicked')
+    .eq('room_code', args.code)
+    .eq('player_id', args.playerId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return false;
+  return !data.is_kicked;
+}
+
 /** Mark a player as kicked. Doesn't delete — keeps the row so they can't rejoin. */
 export async function kickPlayer(db: Db, args: { code: string; playerId: string }): Promise<void> {
   const { error } = await db

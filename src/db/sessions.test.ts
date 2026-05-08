@@ -1,8 +1,10 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import {
+  advanceRoomSession,
   advanceSession,
   findOrCreateDailySession,
+  findOrCreateRoomSession,
   getOrCreateActiveSoloSession,
   getPlayerDailyProgress,
   isRoundInSession,
@@ -558,6 +560,273 @@ describe('getPlayerDailyProgress', () => {
     });
     expect(progress.currentRoundId).toBe('rC');
     expect(progress.guessedCount).toBe(2);
+  });
+});
+
+type RoomFakeOpts = {
+  existing?: {
+    id: string;
+    current_round_id: string | null;
+    current_round_state: string;
+    current_round_started_at: string | null;
+    current_round_revealed_at: string | null;
+  } | null;
+  eligibleRounds?: { id: string }[];
+  newSessionId?: string;
+  insertConflict?: boolean;
+};
+
+function fakeRoomDb(opts: RoomFakeOpts) {
+  const inserts: { table: string; row: unknown }[] = [];
+
+  function gameSessionsBuilder() {
+    const reads = {
+      select: () => reads,
+      eq: () => reads,
+      maybeSingle: async () => ({ data: opts.existing ?? null, error: null }),
+      insert: (row: unknown) => {
+        inserts.push({ table: 'game_sessions', row });
+        return {
+          select: () => ({
+            single: async () => {
+              if (opts.insertConflict) {
+                return {
+                  data: null,
+                  error: { code: '23505', message: 'duplicate key' } as unknown,
+                };
+              }
+              return {
+                data: {
+                  id: opts.newSessionId ?? 'room-sess',
+                  current_round_id: (row as { current_round_id: string }).current_round_id,
+                  current_round_state: 'guessing',
+                  current_round_started_at: (row as { current_round_started_at: string })
+                    .current_round_started_at,
+                  current_round_revealed_at: null,
+                },
+                error: null,
+              };
+            },
+          }),
+        };
+      },
+    };
+    return reads;
+  }
+
+  function roundsBuilder() {
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      // biome-ignore lint/suspicious/noThenProperty: mocking PostgrestBuilder
+      then: (resolve: (v: { data: { id: string }[]; error: null }) => void) =>
+        resolve({ data: opts.eligibleRounds ?? [], error: null }),
+    };
+    return builder;
+  }
+
+  function sessionRoundsBuilder() {
+    const builder = {
+      insert: (rows: unknown) => {
+        inserts.push({ table: 'session_rounds', row: rows });
+        return {
+          // biome-ignore lint/suspicious/noThenProperty: mocking PostgrestBuilder
+          then: (resolve: (v: { data: null; error: null }) => void) =>
+            resolve({ data: null, error: null }),
+        };
+      },
+    };
+    return builder;
+  }
+
+  const from = (table: string) => {
+    if (table === 'game_sessions') return gameSessionsBuilder();
+    if (table === 'rounds') return roundsBuilder();
+    if (table === 'session_rounds') return sessionRoundsBuilder();
+    throw new Error(`unexpected table: ${table}`);
+  };
+
+  return { db: { from } as never, inserts };
+}
+
+describe('findOrCreateRoomSession', () => {
+  it('returns the existing session for the room when one exists', async () => {
+    const { db, inserts } = fakeRoomDb({
+      existing: {
+        id: 'room-existing',
+        current_round_id: 'r1',
+        current_round_state: 'guessing',
+        current_round_started_at: '2026-05-08T12:00:00Z',
+        current_round_revealed_at: null,
+      },
+    });
+    const result = await findOrCreateRoomSession(db, {
+      code: 'ABC123',
+      roundCount: 8,
+    });
+    expect(result.id).toBe('room-existing');
+    expect(result.currentRoundId).toBe('r1');
+    expect(result.currentRoundState).toBe('guessing');
+    expect(inserts).toEqual([]);
+  });
+
+  it('creates a session, picks N rounds, and writes session_rounds rows', async () => {
+    const eligible = Array.from({ length: 12 }, (_, i) => ({
+      id: `r${i.toString().padStart(2, '0')}`,
+    }));
+    const { db, inserts } = fakeRoomDb({
+      existing: null,
+      eligibleRounds: eligible,
+      newSessionId: 'room-new',
+    });
+
+    const result = await findOrCreateRoomSession(db, {
+      code: 'ABC123',
+      roundCount: 8,
+      rng: () => 0,
+    });
+
+    expect(result.id).toBe('room-new');
+    expect(result.currentRoundState).toBe('guessing');
+    expect(result.currentRoundStartedAt).toBeTruthy();
+
+    const sessionInsert = inserts.find((i) => i.table === 'game_sessions');
+    expect(sessionInsert?.row).toMatchObject({
+      mode: 'room',
+      room_id: 'ABC123',
+      current_round_state: 'guessing',
+    });
+
+    const sessionRoundsInsert = inserts.find((i) => i.table === 'session_rounds');
+    const rows = sessionRoundsInsert?.row as Array<{
+      session_id: string;
+      round_index: number;
+      round_id: string;
+    }>;
+    expect(rows).toHaveLength(8);
+    expect(rows.map((r) => r.round_index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(new Set(rows.map((r) => r.round_id)).size).toBe(8);
+
+    const sessionRow = sessionInsert?.row as { current_round_id: string };
+    expect(sessionRow.current_round_id).toBe(rows[0].round_id);
+  });
+
+  it('throws when fewer eligible rounds than requested are available', async () => {
+    const { db } = fakeRoomDb({
+      existing: null,
+      eligibleRounds: [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }],
+    });
+    await expect(
+      findOrCreateRoomSession(db, { code: 'ABC123', roundCount: 8, rng: () => 0 }),
+    ).rejects.toThrow();
+  });
+});
+
+describe('advanceRoomSession', () => {
+  it('moves the pointer to the next session_rounds row and resets timing', async () => {
+    const sessionRows = [
+      { round_index: 0, round_id: 'rA' },
+      { round_index: 1, round_id: 'rB' },
+      { round_index: 2, round_id: 'rC' },
+    ];
+    let updateRow: Record<string, unknown> | null = null;
+    const from = (table: string) => {
+      if (table === 'session_rounds') {
+        const b = {
+          select: () => b,
+          eq: () => b,
+          order: () => b,
+          // biome-ignore lint/suspicious/noThenProperty: mocking PostgrestBuilder
+          then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
+            resolve({ data: sessionRows, error: null }),
+        };
+        return b;
+      }
+      if (table === 'game_sessions') {
+        const b = {
+          select: () => b,
+          eq: () => b,
+          maybeSingle: async () => ({
+            data: { current_round_id: 'rA' },
+            error: null,
+          }),
+          update: (row: Record<string, unknown>) => {
+            updateRow = row;
+            return {
+              eq: () => ({
+                // biome-ignore lint/suspicious/noThenProperty: mocking PostgrestBuilder
+                then: (resolve: (v: { data: null; error: null }) => void) =>
+                  resolve({ data: null, error: null }),
+              }),
+            };
+          },
+        };
+        return b;
+      }
+      throw new Error(`unexpected table: ${table}`);
+    };
+
+    const result = await advanceRoomSession({ from } as never, { sessionId: 'sess-1' });
+
+    expect(result?.roundId).toBe('rB');
+    expect(result?.roundIndex).toBe(1);
+    expect(updateRow).toMatchObject({
+      current_round_id: 'rB',
+      current_round_state: 'guessing',
+      current_round_revealed_at: null,
+    });
+    expect(
+      typeof (updateRow as unknown as { current_round_started_at: string })
+        .current_round_started_at,
+    ).toBe('string');
+  });
+
+  it('returns null and marks session_complete when no next round exists', async () => {
+    const sessionRows = [
+      { round_index: 0, round_id: 'rA' },
+      { round_index: 1, round_id: 'rB' },
+    ];
+    let updateRow: Record<string, unknown> | null = null;
+    const from = (table: string) => {
+      if (table === 'session_rounds') {
+        const b = {
+          select: () => b,
+          eq: () => b,
+          order: () => b,
+          // biome-ignore lint/suspicious/noThenProperty: mocking PostgrestBuilder
+          then: (resolve: (v: { data: unknown[]; error: null }) => void) =>
+            resolve({ data: sessionRows, error: null }),
+        };
+        return b;
+      }
+      if (table === 'game_sessions') {
+        const b = {
+          select: () => b,
+          eq: () => b,
+          maybeSingle: async () => ({
+            data: { current_round_id: 'rB' },
+            error: null,
+          }),
+          update: (row: Record<string, unknown>) => {
+            updateRow = row;
+            return {
+              eq: () => ({
+                // biome-ignore lint/suspicious/noThenProperty: mocking PostgrestBuilder
+                then: (resolve: (v: { data: null; error: null }) => void) =>
+                  resolve({ data: null, error: null }),
+              }),
+            };
+          },
+        };
+        return b;
+      }
+      throw new Error(`unexpected table: ${table}`);
+    };
+
+    const result = await advanceRoomSession({ from } as never, { sessionId: 'sess-1' });
+
+    expect(result).toBeNull();
+    expect(updateRow).toMatchObject({ current_round_state: 'session_complete' });
   });
 });
 
