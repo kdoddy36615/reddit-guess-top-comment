@@ -69,6 +69,42 @@ export async function findGuess(
   return { score: data.score, guessText: data.guess_text };
 }
 
+/**
+ * Lifetime guess count for a single player. Used by /account's "lifetime
+ * guesses played" stat card.
+ */
+export async function countGuessesForPlayer(db: Db, args: { playerId: string }): Promise<number> {
+  const { count, error } = await db
+    .from('guesses')
+    .select('id', { count: 'exact', head: true })
+    .eq('player_id', args.playerId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Every guess this player has ever submitted, joined to the round's subreddit.
+ * Used by /account's "top subreddits by accuracy" stat card. The result-set
+ * is bounded by the player's lifetime guess count, which stays small for
+ * MVP-era players (round count + freeplay caps).
+ */
+export async function selectGuessSubredditsForPlayer(
+  db: Db,
+  args: { playerId: string },
+): Promise<{ subreddit: string; score: number }[]> {
+  const { data, error } = await db
+    .from('guesses')
+    .select('score, rounds!inner ( subreddit )')
+    .eq('player_id', args.playerId);
+  if (error) throw error;
+  type Row = { score: number; rounds: { subreddit: string } | { subreddit: string }[] | null };
+  return ((data ?? []) as Row[]).flatMap((r) => {
+    const round = Array.isArray(r.rounds) ? r.rounds[0] : r.rounds;
+    if (!round) return [];
+    return [{ subreddit: round.subreddit, score: r.score }];
+  });
+}
+
 export type ShareResult = {
   playerId: string;
   nickname: string;

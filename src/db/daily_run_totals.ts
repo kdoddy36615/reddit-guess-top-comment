@@ -58,6 +58,34 @@ export async function findDailyRunTotal(
   return { totalScore: data.total_score, completedAt: data.completed_at };
 }
 
+export type PlayerDailyRunRow = {
+  dailyRoomId: string;
+  totalScore: number;
+  completedAt: string;
+};
+
+/**
+ * All daily-run totals belonging to a single player, ordered newest first.
+ * Used by /account to compute lifetime stats (best run, weekly completion,
+ * streak) from a single round trip.
+ */
+export async function selectAllDailyRunsForPlayer(
+  db: Db,
+  args: { playerId: string },
+): Promise<PlayerDailyRunRow[]> {
+  const { data, error } = await db
+    .from('daily_run_totals')
+    .select('daily_room_id, total_score, completed_at')
+    .eq('player_id', args.playerId)
+    .order('completed_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    dailyRoomId: r.daily_room_id,
+    totalScore: r.total_score,
+    completedAt: r.completed_at,
+  }));
+}
+
 /**
  * Top-N rows on the today board for a single daily room. Ordered by score
  * desc; ties broken by `completed_at asc` so the earlier finisher ranks higher.
