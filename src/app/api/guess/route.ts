@@ -4,6 +4,7 @@ import { findGuess, insertGuess } from '@/db/guesses';
 import { getRoundForScoring } from '@/db/rounds';
 import { findOrCreateSoloSession, isRoundInSession, setSessionState } from '@/db/sessions';
 import { getCurrentPlayer } from '@/lib/auth/current-player';
+import { formatUpvotes } from '@/lib/format/reddit-meta';
 import { embedText } from '@/lib/gemini/embed';
 import { shareToken } from '@/lib/share-token';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -63,6 +64,10 @@ export async function POST(req: NextRequest) {
       reaction,
       shareToken: shareToken(playerId, roundId),
       alreadyGuessed: true,
+      topComment: {
+        text: round.topCommentText,
+        upvotes: formatUpvotes(round.topCommentScore),
+      },
     });
   }
 
@@ -100,5 +105,9 @@ export async function POST(req: NextRequest) {
     breakdown,
     reaction: reactionFor(breakdown.finalScore),
     shareToken: shareToken(playerId, roundId),
+    topComment: {
+      text: round.topCommentText,
+      upvotes: formatUpvotes(round.topCommentScore),
+    },
   });
 }

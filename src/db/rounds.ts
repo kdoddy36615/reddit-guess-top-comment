@@ -17,6 +17,7 @@ export type RoundForGuessing = {
 
 export type RoundForScoring = RoundForGuessing & {
   topCommentText: string;
+  topCommentScore: number;
   commentEmbedding: number[];
   punchlineWord: string | null;
   keyNoun: string | null;
@@ -95,7 +96,7 @@ export async function getRoundForScoring(db: Db, id: string): Promise<RoundForSc
   const { data, error } = await db
     .from('rounds')
     .select(
-      'id, title, subreddit, difficulty, top_comment_text, comment_embedding, punchline_word, key_noun, joke_structure',
+      'id, title, subreddit, difficulty, top_comment_text, top_comment_score, comment_embedding, punchline_word, key_noun, joke_structure',
     )
     .eq('id', id)
     .maybeSingle();
@@ -107,6 +108,7 @@ export async function getRoundForScoring(db: Db, id: string): Promise<RoundForSc
     subreddit: data.subreddit,
     difficulty: data.difficulty as Difficulty,
     topCommentText: data.top_comment_text,
+    topCommentScore: data.top_comment_score,
     commentEmbedding: parsePgvector(data.comment_embedding),
     punchlineWord: data.punchline_word,
     keyNoun: data.key_noun,
@@ -190,17 +192,17 @@ export async function listAutoPublishedForArchive(
   }));
 }
 
-/** Just the top comment text. Used by the reveal endpoint after a guess. */
+/** Just the top comment text + score. Used by the reveal endpoint after a guess. */
 export async function getRoundReveal(
   db: Db,
   id: string,
-): Promise<{ topCommentText: string } | null> {
+): Promise<{ topCommentText: string; topCommentScore: number } | null> {
   const { data, error } = await db
     .from('rounds')
-    .select('top_comment_text')
+    .select('top_comment_text, top_comment_score')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  return { topCommentText: data.top_comment_text };
+  return { topCommentText: data.top_comment_text, topCommentScore: data.top_comment_score };
 }

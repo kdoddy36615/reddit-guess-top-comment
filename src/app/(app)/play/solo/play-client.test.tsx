@@ -267,6 +267,135 @@ describe('SoloPlayClient', () => {
     );
   });
 
+  it('renders the reveal layout immediately when revealInitial is provided', () => {
+    render(
+      <SoloPlayClient
+        roundId="r1"
+        sessionId="s1"
+        hasPlayer
+        autoNickname="brave fox"
+        round={round}
+        revealInitial={{
+          guess: 'a clever guess',
+          score: 87,
+          band: 'bullseye',
+          topComment: { text: 'sounds like a real bossy cat.', upvotes: '14.2k' },
+        }}
+      />,
+    );
+    // No guess input on the reveal layout.
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByTestId('solo-reveal')).toBeInTheDocument();
+    expect(screen.getByTestId('score-reveal')).toBeInTheDocument();
+    expect(screen.getByText(/sounds like a real bossy cat/)).toBeInTheDocument();
+    expect(screen.getByTestId('solo-flag')).toBeInTheDocument();
+    expect(screen.getByTestId('solo-next-round')).toBeInTheDocument();
+  });
+
+  it('transitions to reveal inline (no URL change) after a successful submit', async () => {
+    const user = userEvent.setup();
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          sessionId: 's1',
+          score: 72,
+          reaction: { band: 'close' },
+          topComment: { text: 'sounds like the boss.', upvotes: '14.2k' },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    render(
+      <SoloPlayClient
+        roundId="r1"
+        sessionId="s1"
+        hasPlayer
+        autoNickname="brave fox"
+        round={round}
+      />,
+    );
+    await user.type(screen.getByRole('textbox'), 'a guess');
+    await user.click(screen.getByRole('button', { name: /guess|submit/i }));
+
+    // Reveal layout is now visible without router.refresh / URL change.
+    expect(await screen.findByTestId('solo-reveal')).toBeInTheDocument();
+    expect(screen.getByTestId('score-reveal')).toBeInTheDocument();
+    expect(screen.getByText(/sounds like the boss/)).toBeInTheDocument();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it('clicking [next round] calls /api/session/next with sessionId, then router.refresh', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ sessionId: 's1', roundId: 'r2' }), { status: 200 }),
+      );
+    globalThis.fetch = fetchMock;
+
+    render(
+      <SoloPlayClient
+        roundId="r1"
+        sessionId="s1"
+        hasPlayer
+        autoNickname="brave fox"
+        round={round}
+        revealInitial={{
+          guess: 'a guess',
+          score: 87,
+          band: 'bullseye',
+          topComment: { text: 'top.', upvotes: '14.2k' },
+        }}
+      />,
+    );
+    await user.click(screen.getByTestId('solo-next-round'));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/session/next',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+      sessionId: 's1',
+    });
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('clicking [flag] calls /api/report with the roundId', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ alreadyReported: false, reportCount: 1 }), { status: 200 }),
+      );
+    globalThis.fetch = fetchMock;
+
+    render(
+      <SoloPlayClient
+        roundId="r1"
+        sessionId="s1"
+        hasPlayer
+        autoNickname="brave fox"
+        round={round}
+        revealInitial={{
+          guess: 'a guess',
+          score: 87,
+          band: 'bullseye',
+          topComment: { text: 'top.', upvotes: '14.2k' },
+        }}
+      />,
+    );
+    await user.click(screen.getByTestId('solo-flag'));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/report',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({
+      roundId: 'r1',
+    });
+  });
+
   it('shows an error toast when the onboard request fails', async () => {
     const user = userEvent.setup();
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
