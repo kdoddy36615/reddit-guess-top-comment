@@ -74,6 +74,35 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_run_totals: {
+        Row: {
+          completed_at: string
+          daily_room_id: string
+          player_id: string
+          total_score: number
+        }
+        Insert: {
+          completed_at?: string
+          daily_room_id: string
+          player_id: string
+          total_score: number
+        }
+        Update: {
+          completed_at?: string
+          daily_room_id?: string
+          player_id?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_run_totals_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_sessions: {
         Row: {
           completed_at: string | null
@@ -222,6 +251,42 @@ export type Database = {
         }
         Relationships: []
       }
+      round_reports: {
+        Row: {
+          player_id: string
+          reason: string | null
+          reported_at: string
+          round_id: string
+        }
+        Insert: {
+          player_id: string
+          reason?: string | null
+          reported_at?: string
+          round_id: string
+        }
+        Update: {
+          player_id?: string
+          reason?: string | null
+          reported_at?: string
+          round_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "round_reports_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "round_reports_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rounds: {
         Row: {
           comment_embedding: string | null
@@ -290,42 +355,6 @@ export type Database = {
           top_comment_text?: string
         }
         Relationships: []
-      }
-      round_reports: {
-        Row: {
-          player_id: string
-          reason: string | null
-          reported_at: string
-          round_id: string
-        }
-        Insert: {
-          player_id: string
-          reason?: string | null
-          reported_at?: string
-          round_id: string
-        }
-        Update: {
-          player_id?: string
-          reason?: string | null
-          reported_at?: string
-          round_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "round_reports_player_id_fkey"
-            columns: ["player_id"]
-            isOneToOne: false
-            referencedRelation: "players"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "round_reports_round_id_fkey"
-            columns: ["round_id"]
-            isOneToOne: false
-            referencedRelation: "rounds"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       session_rounds: {
         Row: {
