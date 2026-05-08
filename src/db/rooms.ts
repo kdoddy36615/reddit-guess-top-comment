@@ -106,6 +106,43 @@ export async function getRoom(db: Db, code: string): Promise<Room | null> {
   return data ? toRoom(data) : null;
 }
 
+export interface RoomPlayer {
+  player_id: string;
+  is_kicked: boolean;
+  joined_at: string;
+  nickname: string | null;
+}
+
+/**
+ * Fetch the players in a room (including kicked rows so callers can render the
+ * 'kicked' chip state). The lobby UI renders one chip per row in `joined_at`
+ * order so chips appear in arrival order; presence sync overlays online state.
+ */
+export async function getRoomPlayers(db: Db, code: string): Promise<RoomPlayer[]> {
+  const { data, error } = await db
+    .from('room_players')
+    .select('player_id, is_kicked, joined_at, players(nickname)')
+    .eq('room_code', code)
+    .order('joined_at', { ascending: true });
+  if (error) throw error;
+  if (!data) return [];
+  return data.map((row) => {
+    const players = row.players as
+      | { nickname: string | null }
+      | { nickname: string | null }[]
+      | null;
+    const nickname = Array.isArray(players)
+      ? (players[0]?.nickname ?? null)
+      : (players?.nickname ?? null);
+    return {
+      player_id: row.player_id,
+      is_kicked: row.is_kicked,
+      joined_at: row.joined_at,
+      nickname,
+    };
+  });
+}
+
 export type JoinResult =
   | { ok: true }
   | { ok: false; reason: 'not_found' | 'not_in_lobby' | 'locked' | 'full' | 'kicked' };

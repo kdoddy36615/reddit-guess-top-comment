@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createRoom,
   getRoom,
+  getRoomPlayers,
   joinRoom,
   kickPlayer,
   lockRoom,
@@ -354,6 +355,50 @@ describe('rooms wrapper — full lifecycle', () => {
     const { db } = makeFakeDb();
     const r = await getRoom(db, 'XXXXXX');
     expect(r).toBeNull();
+  });
+
+  it('getRoomPlayers returns rows in joined_at order with embedded nickname', async () => {
+    // Stand-alone mock: getRoomPlayers uses a Supabase foreign-table embed
+    // (`players(nickname)`) which the room-lifecycle fake doesn't model.
+    const rows = [
+      {
+        player_id: 'p1',
+        is_kicked: false,
+        joined_at: '2026-05-08T12:00:00Z',
+        players: { nickname: 'alice' },
+      },
+      {
+        player_id: 'p2',
+        is_kicked: true,
+        joined_at: '2026-05-08T12:01:00Z',
+        players: [{ nickname: 'bob' }],
+      },
+      {
+        player_id: 'p3',
+        is_kicked: false,
+        joined_at: '2026-05-08T12:02:00Z',
+        players: null,
+      },
+    ];
+    const order = (col: string, opts: { ascending: boolean }) =>
+      Promise.resolve({ data: rows, error: null, _col: col, _asc: opts.ascending });
+    const eq = (_col: string, _val: unknown) => ({ order });
+    const select = (_cols: string) => ({ eq });
+    const from = (_table: string) => ({ select });
+    // biome-ignore lint/suspicious/noExplicitAny: minimal mock surface
+    const result = await getRoomPlayers({ from } as any, 'CODE12');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({
+      player_id: 'p1',
+      is_kicked: false,
+      joined_at: '2026-05-08T12:00:00Z',
+      nickname: 'alice',
+    });
+    // Tolerates Supabase returning the embed as either an object or a single-
+    // element array depending on the cardinality inference.
+    expect(result[1].nickname).toBe('bob');
+    expect(result[1].is_kicked).toBe(true);
+    expect(result[2].nickname).toBeNull();
   });
 
   it('does not count kicked players against capacity', async () => {
