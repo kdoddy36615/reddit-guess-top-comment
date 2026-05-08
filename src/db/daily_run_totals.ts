@@ -87,6 +87,22 @@ export async function selectAllDailyRunsForPlayer(
 }
 
 /**
+ * Count of distinct players who have completed today's daily. Powers the
+ * landing aux row's "N played today" stat.
+ */
+export async function countPlayersForDailyRoom(
+  db: Db,
+  args: { dailyRoomId: string },
+): Promise<number> {
+  const { count, error } = await db
+    .from('daily_run_totals')
+    .select('player_id', { count: 'exact', head: true })
+    .eq('daily_room_id', args.dailyRoomId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
  * Top-N rows on the today board for a single daily room. Ordered by score
  * desc; ties broken by `completed_at asc` so the earlier finisher ranks higher.
  */

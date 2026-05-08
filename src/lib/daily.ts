@@ -5,6 +5,26 @@ export function dailyRoomId(date: Date): string {
   return `daily-${yyyy}-${mm}-${dd}`;
 }
 
+export interface DailyResetCountdown {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  totalSeconds: number;
+}
+
+/**
+ * Time remaining until the next UTC midnight, when `dailyRoomId` rolls over.
+ * Used by the landing aux row's "daily resets in HH:MM:SS" display.
+ */
+export function timeUntilNextDailyReset(now: Date): DailyResetCountdown {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0);
+  const totalSeconds = Math.max(0, Math.floor((next - now.getTime()) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { hours, minutes, seconds, totalSeconds };
+}
+
 // xmur3 string hash → 32-bit seed.
 function xmur3(str: string): number {
   let h = 1779033703 ^ str.length;
